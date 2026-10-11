@@ -37,7 +37,8 @@ STATUS = {'supported': ('Поддерживается', GREEN), 'driver': ('NVID
 def read_json(path):
     try:
         if Path(path).stat().st_size > 16 * 1024 * 1024: return None
-        return json.loads(Path(path).read_text(encoding='utf-8'))
+        value = json.loads(Path(path).read_text(encoding='utf-8'))
+        return value if isinstance(value, dict) else None
     except (OSError, ValueError): return None
 
 
@@ -426,7 +427,7 @@ class Application(ctk.CTk):
         self.analysis = read_json(path)
         if self.analysis_current(): self.render_hardware()
         else: self.analysis = None
-        if (self.work / 'build-result.json').is_file(): self.load_build(self.work / 'build-result.json')
+        if read_json(self.work / 'build-result.json'): self.load_build(self.work / 'build-result.json')
         if (self.work / 'BIOS.txt').is_file(): self.set_text(self.guide_text, (self.work / 'BIOS.txt').read_text(encoding='utf-8'))
         self.update_gates()
 
