@@ -40,6 +40,9 @@ def restore_scan_owner(destination):
 
 def parser():
     ap = argparse.ArgumentParser(prog='1401', description='1401 Linux: scan hardware, build EFI, create an installer USB')
+    try: version = (REPO / 'LINUX_VERSION').read_text().strip()
+    except OSError: version = 'source'
+    ap.add_argument('--version', action='version', version='1401 Linux ' + version)
     sub = ap.add_subparsers(dest='command')
     sub.add_parser('gui', help='open the Linux desktop interface')
     p = sub.add_parser('scan', help='collect hardware and ACPI (requires root)')
@@ -115,7 +118,7 @@ def main(argv=None):
             tls.install()
             from . import linux_provenance
             with linux_provenance.for_profile(profile):
-                result = linux_usb.write(disk, a.build, apple.image_info(a.darwin), a.allow_large,
+                result = linux_usb.write(disk, a.build, lambda: apple.image_info(a.darwin), a.allow_large,
                                          progress=lambda done, total, *_: print(f'Download {done}/{total}', flush=True),
                                          machine_profile=profile)
             print('Installer USB ready:', json.dumps(result, default=str))

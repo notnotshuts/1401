@@ -1,5 +1,6 @@
 import copy
 import json
+import errno
 from os import makedev as os_device
 import unittest
 from unittest.mock import patch, Mock
@@ -13,6 +14,63 @@ def fixture(**extra):
 
 
 class LinuxDiskSafety(unittest.TestCase):
+    def test_automount_race_is_revalidated_before_retry(self):
+        check = Mock(return_value={'Mounts': []})
+        with patch.object(usb.os, 'open', side_effect=[OSError(errno.EBUSY, 'busy'), 42]) as opened, \
+             patch.object(usb.time, 'sleep'):
+            self.assertEqual(usb.exclusive_disk('/dev/sda', check), 42)
+        self.assertEqual(opened.call_count, 2)
+        self.assertEqual(check.call_count, 4)
+
+    def test_busy_refusal_is_bounded_and_never_partitions(self):
+        with patch.object(usb.os, 'open', side_effect=OSError(errno.EBUSY, 'busy')) as opened, \
+             patch.object(usb.time, 'sleep'), patch.object(usb.subprocess, 'run') as partition:
+            with self.assertRaisesRegex(usb.UsbError, 'разметка не выполнялась'):
+                usb.format_disk('/dev/sda', 16 << 30, Mock(return_value={'Mounts': []}))
+        self.assertEqual(opened.call_count, 3); partition.assert_not_called()
+
+    def test_replaced_disk_during_retry_stops_before_second_open(self):
+        check = Mock(side_effect=[{'Mounts': []}, {'Mounts': []}, usb.UsbError('disk changed')])
+        with patch.object(usb.os, 'open', side_effect=OSError(errno.EBUSY, 'busy')) as opened, \
+             patch.object(usb.time, 'sleep'):
+            with self.assertRaisesRegex(usb.UsbError, 'disk changed'): usb.exclusive_disk('/dev/sda', check)
+        self.assertEqual(opened.call_count, 1)
+
+    def test_only_currently_verified_mounts_are_unmounted(self):
+        check = Mock(side_effect=[{'Mounts': ['/media/user/USB']}, {'Mounts': []}, {'Mounts': []}])
+        with patch.object(usb, 'run') as run:
+            usb.unmount_checked(check)
+        run.assert_not_called()
+        check = Mock(side_effect=[{'Mounts': ['/media/user/USB']}, {'Mounts': ['/media/user/USB']}, {'Mounts': []}])
+        with patch.object(usb, 'run') as run:
+            usb.unmount_checked(check)
+        run.assert_called_once_with('umount', '--', '/media/user/USB')
+
+    def test_busy_usb_stops_before_efi_or_network(self):
+        with patch.object(usb.os, 'geteuid', return_value=0), patch.object(usb.shutil, 'which', return_value='/bin/tool'), \
+             patch.object(usb, 'preflight', side_effect=usb.UsbError('busy')), \
+             patch('p1401.validate.validate') as validate, patch('p1401.apple.download') as download:
+            metadata = Mock()
+            with self.assertRaisesRegex(usb.UsbError, 'busy'): usb.write({'Path': '/dev/sda'}, '/build', metadata)
+            validate.assert_not_called(); metadata.assert_not_called(); download.assert_not_called()
+
+    def test_usb_preflight_precedes_efi_metadata_and_download(self):
+        order = []; profile = {'fixture': True}
+        def step(name, value=None):
+            def call(*args, **kwargs):
+                order.append(name)
+                if name == 'download': raise RuntimeError('network')
+                return value
+            return call
+        with patch.object(usb.os, 'geteuid', return_value=0), patch.object(usb.shutil, 'which', return_value='/bin/tool'), \
+             patch.object(usb, 'preflight', side_effect=step('usb')), \
+             patch('p1401.validate.validate', side_effect=step('efi', {'ok': True})), \
+             patch('p1401.machine_handoff.verified', return_value=profile), \
+             patch('p1401.apple.download', side_effect=step('download')):
+            with self.assertRaisesRegex(RuntimeError, 'network'):
+                usb.write({'Path': '/dev/sda'}, '/build', step('metadata', {}), machine_profile=profile)
+        self.assertEqual(order, ['usb', 'efi', 'metadata', 'download'])
+
     def test_inventory_explicitly_requests_children_without_name_column(self):
         with patch.object(usb, 'run', return_value=json.dumps({'blockdevices': [fixture()]})) as run:
             usb.list_disks()
@@ -79,16 +137,16 @@ class LinuxDiskSafety(unittest.TestCase):
         with patch.object(usb, 'list_disks', return_value=[disk]), patch.object(usb.os, 'stat', return_value=Mock(st_mode=0o60600, st_rdev=0)), patch.object(usb.os, 'major', return_value=8), patch.object(usb.os, 'minor', return_value=240), patch.object(usb.Path, 'is_dir', return_value=True), patch.object(usb.Path, 'iterdir', return_value=iter(['dm-0'])):
             with self.assertRaisesRegex(usb.UsbError, 'in use'): usb.check_disk(disk)
 
-    def test_invalid_build_never_touches_disk(self):
-        with patch.object(usb.os, 'geteuid', return_value=0), patch.object(usb.shutil, 'which', return_value='/bin/tool'), patch('p1401.validate.validate', return_value={'ok': False}), patch.object(usb, 'check_disk') as check, patch.object(usb, 'format_disk') as fmt:
+    def test_invalid_build_never_formats_disk(self):
+        with patch.object(usb.os, 'geteuid', return_value=0), patch.object(usb.shutil, 'which', return_value='/bin/tool'), patch('p1401.validate.validate', return_value={'ok': False}), patch.object(usb, 'preflight') as check, patch.object(usb, 'format_disk') as fmt:
             with self.assertRaisesRegex(usb.UsbError, 'validation'): usb.write({}, '/missing', {})
-            check.assert_not_called(); fmt.assert_not_called()
+            check.assert_called_once(); fmt.assert_not_called()
 
     def test_failed_download_never_touches_disk(self):
         profile = {'fixture': True}
-        with patch.object(usb.os, 'geteuid', return_value=0), patch.object(usb.shutil, 'which', return_value='/bin/tool'), patch('p1401.validate.validate', return_value={'ok': True}), patch('p1401.machine_handoff.verified', return_value=profile), patch('p1401.apple.download', side_effect=RuntimeError('network')), patch.object(usb, 'check_disk') as check, patch.object(usb, 'format_disk') as fmt:
+        with patch.object(usb.os, 'geteuid', return_value=0), patch.object(usb.shutil, 'which', return_value='/bin/tool'), patch('p1401.validate.validate', return_value={'ok': True}), patch('p1401.machine_handoff.verified', return_value=profile), patch('p1401.apple.download', side_effect=RuntimeError('network')), patch.object(usb, 'preflight') as check, patch.object(usb, 'format_disk') as fmt:
             with self.assertRaisesRegex(RuntimeError, 'network'): usb.write({}, '/missing', {}, machine_profile=profile)
-            check.assert_not_called(); fmt.assert_not_called()
+            check.assert_called_once(); fmt.assert_not_called()
 
     def test_confirmation_mismatch_cannot_write(self):
         from p1401 import linux

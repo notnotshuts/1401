@@ -1,5 +1,6 @@
 """Linux USB backend. No shell interpolation; unknown disk state fails closed."""
 import json
+import errno
 import os
 from pathlib import Path
 import shutil
@@ -119,12 +120,51 @@ def mount_partition(partition, root):
         raise
 
 
+def unmount_checked(recheck):
+    """Only unmount paths belonging to the freshly revalidated selected disk."""
+    state = recheck()
+    for mount in sorted(set(state['Mounts']), key=len, reverse=True):
+        current = recheck()
+        if mount in current['Mounts']:
+            print(f'Unmounting selected USB: {mount}', flush=True)
+            run('umount', '--', mount)
+    return recheck()
+
+
+def exclusive_disk(path, recheck=None):
+    """Bounded automount-race retry; never remove holders or force an erase."""
+    for attempt in range(3):
+        state = unmount_checked(recheck) if recheck else None
+        try:
+            if state and state['Mounts']:
+                raise OSError(errno.EBUSY, 'USB remounted', path)
+            return os.open(path, os.O_RDONLY | os.O_EXCL | os.O_NOFOLLOW)
+        except OSError as error:
+            if error.errno != errno.EBUSY: raise
+            if not recheck or attempt == 2:
+                raise UsbError(f'{path} занят. Закройте окна файлового менеджера и программы, использующие флешку, '
+                               'затем повторите запись. Эксклюзивный доступ не получен; разметка не выполнялась.') from error
+            print('USB was remounted or is busy; rechecking before another exclusive-open attempt.', flush=True)
+            time.sleep(.3)
+
+
+def preflight(disk, allow_large=False):
+    """Check USB access first, without changing its partition table or files."""
+    print(f'Checking USB before EFI validation and recovery download: {disk["Path"]}', flush=True)
+    fd = exclusive_disk(disk['Path'], lambda: check_disk(disk, allow_large))
+    try:
+        check_disk(disk, allow_large)
+    finally:
+        os.close(fd)
+    print('USB access checked. Preparing EFI and Apple Recovery.', flush=True)
+
+
 def format_disk(path, size, recheck=None):
     """Internal formatter. Caller must hold and revalidate the selected USB disk."""
     sectors = min(size - 64 * (1 << 20), PART_CAP) // 512
     # sfdisk specifies sizes in sectors; MBR type EF makes the FAT32 volume UEFI bootable.
     script = f'label: dos\nunit: sectors\n\nstart=2048, size={sectors}, type=ef, bootable\n'
-    fd = os.open(path, os.O_RDONLY | os.O_EXCL | os.O_NOFOLLOW)
+    fd = exclusive_disk(path, recheck)
     try:
         if recheck: recheck()
         # The exclusive claim itself makes BLKRRPART report busy. Keep the claim
@@ -148,7 +188,7 @@ def format_disk(path, size, recheck=None):
     if partition is None:
         raise UsbError('The new USB partition did not appear with the expected kernel identity and size.')
     if recheck:
-        state = recheck()
+        state = unmount_checked(recheck)
         if state['Mounts']:
             raise UsbError('The new partition was mounted by another process; formatting stopped.')
     # mkfs.fat opens its target with O_EXCL itself; a second claim would block it.
@@ -163,12 +203,16 @@ def write(disk, efi_build_dir, recovery_info, allow_large=False, progress=None, 
     for tool in ('lsblk', 'sfdisk', 'mkfs.fat', 'mount', 'findmnt', 'umount', 'udevadm', 'blockdev'):
         if not shutil.which(tool):
             raise UsbError(f'Missing system tool: {tool}')
+    preflight(disk, allow_large)
     checked = validate.validate(efi_build_dir)
     if not checked.get('ok'):
         raise UsbError('The EFI must pass validation before erasing: ' + str(checked))
     if machine_profile is None or machine_handoff.verified(efi_build_dir) != machine_profile:
         raise UsbError('A verified build profile is required before erasing.')
-    # Fetch and verify recovery before touching storage. Network failure cannot erase a stick.
+    # Apple metadata is lazy in the CLI so even the first network request
+    # happens after USB access has been checked. Recheck again before erasing.
+    if callable(recovery_info): recovery_info = recovery_info()
+    # Fetch and verify recovery before erasing. Network failure cannot erase a stick.
     with tempfile.TemporaryDirectory(prefix='1401-recovery-') as staging:
         got = apple.download(recovery_info, staging, progress)
         driver = None
@@ -177,15 +221,11 @@ def write(disk, efi_build_dir, recovery_info, allow_large=False, progress=None, 
             os.makedirs(cache, exist_ok=True)
             driver = nullmoth.stage(staging, cache, fetch=_fetch)
         current = check_disk(disk, allow_large)
-        # Exclusive block-device open prevents erasing disks mounted by another process.
-        for mount in sorted(set(current['Mounts']), key=len, reverse=True):
-            run('umount', '--', mount)
-        current = check_disk(disk, allow_large)
         partition = format_disk(disk['Path'], current['Size'],
                                 recheck=lambda: check_disk(disk, allow_large))
         print(f'USB disk: {disk["Path"]}; mounting FAT32 partition: {partition}', flush=True)
         with tempfile.TemporaryDirectory(prefix='1401-usb-') as root:
-            check_disk(disk, allow_large)
+            unmount_checked(lambda: check_disk(disk, allow_large))
             mount_partition(partition, root)
             try:
                 shutil.copytree(os.path.join(staging, 'com.apple.recovery.boot'), os.path.join(root, 'com.apple.recovery.boot'))

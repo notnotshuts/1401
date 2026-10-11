@@ -35,6 +35,22 @@ with tempfile.TemporaryDirectory() as td:
             (root / 'EFI/BOOT/BOOTx64.efi').write_bytes(b'fixture')
             os.sync()
             assert (root / 'EFI/BOOT/BOOTx64.efi').read_bytes() == b'fixture'
+            def checked_loop():
+                assert loop in actual_run('losetup', '--associated', str(image)).split()[0]
+                data = json.loads(actual_run('lsblk', '--json', '--tree', '--bytes', '--paths', '--output',
+                                              'PATH,TYPE,SIZE,MODEL,SERIAL,TRAN,RO,FSTYPE,PARTTYPE,MOUNTPOINTS,MAJ:MIN', loop))
+                return usb.describe(data['blockdevices'][0])
+            # Exercise the actual EBUSY condition without writing another partition table.
+            try:
+                fd = os.open(loop, os.O_RDONLY | os.O_EXCL)
+            except OSError as error:
+                assert error.errno == 16
+            else:
+                os.close(fd); raise AssertionError('Mounted partition did not protect its whole disk')
+            fd = usb.exclusive_disk(loop, checked_loop)
+            os.close(fd)
+            assert not checked_loop()['Mounts']
+            usb.mount_partition(partition, str(root))
         finally: usb.run('umount', str(root))
         print('Kernel partition identity, mounted-child discovery, checked FAT32 mount, write and readback passed.')
     finally: usb.run('losetup', '--detach', loop)

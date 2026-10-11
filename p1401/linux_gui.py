@@ -576,7 +576,7 @@ class Application(ctk.CTk):
         dialog = ctk.CTkInputDialog(text=f'Будут удалены ВСЕ данные на {disk["Path"]}\n{disk["FriendlyName"]} · {disk["Size"] / 2**30:.1f} GiB\n\nВведите путь диска для подтверждения:', title='Подтвердить очистку USB')
         if dialog.get_input() != disk['Path']: return
         self.start(['write', disk['Path'], str(self.build_dir), '--profile', self.report_file, '--darwin', str(self.major), '--confirm-erase', disk['Path']],
-                   'Загрузка восстановления и запись USB…', self.write_complete, privileged=True)
+                   'Проверка доступа к USB, затем подготовка и запись…', self.write_complete, privileged=True)
 
     def write_complete(self, code):
         if code != 0: return

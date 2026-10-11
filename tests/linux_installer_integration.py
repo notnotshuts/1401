@@ -140,8 +140,10 @@ def write(state, build, report, output):
             profile['efi_sha256'] = machine_handoff.efi_hashes(copied)
             (copied / machine_handoff.NAME).write_text(json.dumps(profile))
             result['ci_only_settings'] = {**changes, 'Debug.Target': config['Misc']['Debug']['Target']}
-            info = apple.image_info(24)
-            result['apple_product'] = info['product']; result['apple_board'] = info['board']
+            def recovery():
+                info = apple.image_info(24)
+                result['apple_product'] = info['product']; result['apple_board'] = info['board']
+                return info
             last = [-1]
             def progress(done, total):
                 percent = done * 100 // total
@@ -149,7 +151,7 @@ def write(state, build, report, output):
             def checked(selected, allow_large=False):
                 assert selected['Path'] == state['disk']['Path']; return owned(state)
             with linux_provenance.for_profile(profile), patch.object(usb, 'check_disk', side_effect=checked):
-                got = usb.write(state['disk'], str(copied), info, progress=progress, machine_profile=profile)
+                got = usb.write(state['disk'], str(copied), recovery, progress=progress, machine_profile=profile)
             print('USB write completed. Independently checking remounted EFI and all signed recovery chunks.', flush=True)
             result['writer'] = got
             with tempfile.TemporaryDirectory(prefix='1401-readback-') as mount:
