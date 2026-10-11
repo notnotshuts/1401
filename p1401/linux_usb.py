@@ -77,16 +77,23 @@ def check_disk(selected, allow_large=False):
     return current
 
 
-def format_disk(path, size):
+def format_disk(path, size, recheck=None):
     """Internal formatter. Caller must hold and revalidate the selected USB disk."""
     sectors = min(size - 64 * (1 << 20), PART_CAP) // 512
     # sfdisk specifies sizes in sectors; MBR type EF makes the FAT32 volume UEFI bootable.
     script = f'label: dos\nunit: sectors\n\nstart=2048, size={sectors}, type=ef, bootable\n'
+    fd = os.open(path, os.O_RDONLY | os.O_EXCL | os.O_NOFOLLOW)
     try:
-        subprocess.run(['sfdisk', '--wipe', 'always', '--wipe-partitions', 'always', path],
+        if recheck: recheck()
+        # The exclusive claim itself makes BLKRRPART report busy. Keep the claim
+        # during the destructive write, then release it before the kernel reread.
+        subprocess.run(['sfdisk', '--no-reread', '--no-tell-kernel', '--wipe', 'always', '--wipe-partitions', 'always', path],
                        input=script, text=True, capture_output=True, check=True, timeout=300)
     except subprocess.SubprocessError as error:
         raise UsbError('Partitioning failed: ' + (getattr(error, 'stderr', '') or str(error))) from error
+    finally:
+        os.close(fd)
+    run('blockdev', '--rereadpt', path)
     run('udevadm', 'settle')
     partition = path + ('p1' if path[-1].isdigit() else '1')
     for _ in range(40):
@@ -95,7 +102,15 @@ def format_disk(path, size):
         time.sleep(.25)
     if not os.path.exists(partition):
         raise UsbError('The new USB partition did not appear.')
-    run('mkfs.fat', '-F', '32', '-n', '1401', partition)
+    if recheck:
+        state = recheck()
+        if state['Mounts']:
+            raise UsbError('The new partition was mounted by another process; formatting stopped.')
+    fd = os.open(partition, os.O_RDONLY | os.O_EXCL | os.O_NOFOLLOW)
+    try:
+        run('mkfs.fat', '-F', '32', '-n', '1401', partition)
+    finally:
+        os.close(fd)
     return partition
 
 
@@ -103,7 +118,7 @@ def write(disk, efi_build_dir, recovery_info, allow_large=False, progress=None, 
     from . import apple, validate, machine_handoff, nullmoth
     if os.geteuid() != 0:
         raise UsbError('USB writing requires root. Run sudo 1401 write ...')
-    for tool in ('lsblk', 'sfdisk', 'mkfs.fat', 'mount', 'umount', 'udevadm'):
+    for tool in ('lsblk', 'sfdisk', 'mkfs.fat', 'mount', 'umount', 'udevadm', 'blockdev'):
         if not shutil.which(tool):
             raise UsbError(f'Missing system tool: {tool}')
     checked = validate.validate(efi_build_dir)
@@ -124,24 +139,22 @@ def write(disk, efi_build_dir, recovery_info, allow_large=False, progress=None, 
         for mount in sorted(set(current['Mounts']), key=len, reverse=True):
             run('umount', '--', mount)
         current = check_disk(disk, allow_large)
-        fd = os.open(disk['Path'], os.O_RDONLY | os.O_EXCL | os.O_NOFOLLOW)
-        try:
-            current = check_disk(disk, allow_large)
-            partition = format_disk(disk['Path'], current['Size'])
-            with tempfile.TemporaryDirectory(prefix='1401-usb-') as root:
-                run('mount', '-t', 'vfat', '-o', 'nodev,nosuid,noexec', partition, root)
-                try:
-                    shutil.copytree(os.path.join(staging, 'com.apple.recovery.boot'), os.path.join(root, 'com.apple.recovery.boot'))
-                    shutil.copytree(os.path.join(efi_build_dir, 'EFI'), os.path.join(root, 'EFI'))
-                    if driver:
-                        shutil.copytree(os.path.join(staging, 'NullMoth'), os.path.join(root, 'NullMoth'))
-                    machine_handoff.copy_to_installer(machine_profile, root)
-                    os.sync()
-                    verify_efi_copy(os.path.join(efi_build_dir, 'EFI'), os.path.join(root, 'EFI'))
-                    verify_efi_copy(os.path.join(staging, 'com.apple.recovery.boot'), os.path.join(root, 'com.apple.recovery.boot'))
-                finally:
-                    run('umount', '--', root)
-        finally:
-            os.close(fd)
+        partition = format_disk(disk['Path'], current['Size'],
+                                recheck=lambda: check_disk(disk, allow_large))
+        with tempfile.TemporaryDirectory(prefix='1401-usb-') as root:
+            run('mount', '-t', 'vfat', '-o', 'nodev,nosuid,noexec', partition, root)
+            try:
+                shutil.copytree(os.path.join(staging, 'com.apple.recovery.boot'), os.path.join(root, 'com.apple.recovery.boot'))
+                shutil.copytree(os.path.join(efi_build_dir, 'EFI'), os.path.join(root, 'EFI'))
+                if driver:
+                    shutil.copytree(os.path.join(staging, 'NullMoth'), os.path.join(root, 'NullMoth'))
+                machine_handoff.copy_to_installer(machine_profile, root)
+                os.sync()
+                verify_efi_copy(os.path.join(efi_build_dir, 'EFI'), os.path.join(root, 'EFI'))
+                verify_efi_copy(os.path.join(staging, 'com.apple.recovery.boot'), os.path.join(root, 'com.apple.recovery.boot'))
+                if driver:
+                    verify_efi_copy(os.path.join(staging, 'NullMoth'), os.path.join(root, 'NullMoth'))
+            finally:
+                run('umount', '--', root)
     return {'device': disk['Path'], 'partition': partition, 'nullmoth': bool(driver),
             'bytes': got['bytes'], 'chunks': got['chunks']}
