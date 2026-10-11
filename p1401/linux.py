@@ -60,6 +60,9 @@ def main(argv=None):
             args = [a.command, str(Path(a.report).resolve()), str(Path(a.acpi).resolve())]
             if a.command == 'build': args.append(str(Path(a.output).resolve()))
             child('p1401', *args, '--macos', a.macos, '--echo', '--json')
+            if a.command == 'build':
+                from . import linux_provenance
+                linux_provenance.record(str(Path(a.output).resolve()), str(Path(a.report).resolve()))
         elif a.command == 'guide':
             make_guide(a.report, a.build, a.output)
         elif a.command == 'disks':
@@ -76,9 +79,11 @@ def main(argv=None):
             linux_usb.check_disk(disk, a.allow_large)
             profile = machine_handoff.verified(a.build, a.profile)
             tls.install()
-            result = linux_usb.write(disk, a.build, apple.image_info(a.darwin), a.allow_large,
-                                     progress=lambda done, total, *_: print(f'Download {done}/{total}', flush=True),
-                                     machine_profile=profile)
+            from . import linux_provenance
+            with linux_provenance.for_profile(profile):
+                result = linux_usb.write(disk, a.build, apple.image_info(a.darwin), a.allow_large,
+                                         progress=lambda done, total, *_: print(f'Download {done}/{total}', flush=True),
+                                         machine_profile=profile)
             print('Installer USB ready:', json.dumps(result, default=str))
         return 0
     except Exception as error:

@@ -48,6 +48,14 @@ jobs:
           PYCODE
           1401 build "$GITHUB_WORKSPACE/tests/corpus/cache/x570-5800x-6600xt/Report.json" "$GITHUB_WORKSPACE/tests/corpus/cache/x570-5800x-6600xt/ACPI" "$RUNNER_TEMP/corpus-efi" --macos 24
           1401 guide "$GITHUB_WORKSPACE/tests/corpus/cache/x570-5800x-6600xt/Report.json" "$RUNNER_TEMP/corpus-efi" "$RUNNER_TEMP/BIOS.txt"
+          sudo env PYTHONPATH=/usr/lib/1401 python3 - "$RUNNER_TEMP/corpus-efi" <<'PYCODE'
+          import sys
+          from p1401 import linux_provenance, machine_handoff, validate
+          with linux_provenance.for_profile(machine_handoff.verified(sys.argv[1])):
+              result = validate.validate(sys.argv[1])
+              assert result['ok'], result
+          print('Root revalidation of ordinary-user build passed.')
+          PYCODE
       - name: Upload Linux packages and checksums
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
