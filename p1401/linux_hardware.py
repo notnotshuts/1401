@@ -29,7 +29,10 @@ def supports(compatibility, major):
 
 def devices(hardware, major):
     rows = []
-    for section, values in hardware.items():
+    priority = ['CPU', 'GPU', 'Network', 'Storage Controllers', 'Sound', 'Bluetooth', 'Motherboard', 'BIOS']
+    ordered = sorted(hardware, key=lambda key: priority.index(key) if key in priority else len(priority))
+    for section in ordered:
+        values = hardware[section]
         if not isinstance(values, dict): continue
         entries = [(values.get('Processor Name', 'CPU'), values)] if section == 'CPU' else list(values.items())
         if section in ('Motherboard', 'BIOS'):

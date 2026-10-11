@@ -338,7 +338,10 @@ class Application(ctk.CTk):
         patched = ', '.join(VERSIONS[n] for n in data.get('oclp_versions', []))
         summary = f'Поддерживаемые версии: {versions}.' + (f' С OCLP: {patched}.' if patched else '')
         messages = data.get('blockers', []) + data.get('warnings', [])
-        if messages: summary += '\n' + '\n'.join(messages)
+        if messages:
+            summary += '\n' + '\n'.join(str(message)[:240] for message in messages[:2])
+            if len(messages) > 2 or any(len(str(message)) > 240 for message in messages):
+                summary += '\nПолные замечания доступны в журнале и compatibility.json.'
         summary += '\nACPI: ' + ('DSDT найдена.' if self.acpi_ready() else 'DSDT не найдена — для сборки требуется полный ACPI dump.')
         self.hardware_summary.configure(text=summary, text_color=MUTED if data.get('ok') else AMBER)
         self.summary_labels['compat'].configure(text='Подходит выбранная macOS' if data.get('ok') else 'Есть ограничения', text_color=GREEN if data.get('ok') else AMBER)

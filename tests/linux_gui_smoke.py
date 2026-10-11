@@ -18,7 +18,8 @@ with tempfile.TemporaryDirectory() as td:
     app.update_idletasks()
     def capture(name):
         app.update()
-        subprocess.run(['scrot', str(output / name)], check=True)
+        region = f'{app.winfo_rootx()},{app.winfo_rooty()},{app.winfo_width()},{app.winfo_height()}'
+        subprocess.run(['scrot', '-a', region, str(output / name)], check=True)
     capture('overview.png')
     assert app.build_button.cget('state') == 'disabled'
     if a.report:
