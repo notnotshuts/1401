@@ -18,6 +18,10 @@ How the code works, step by step: [`docs/HOW-IT-WORKS.md`](docs/HOW-IT-WORKS.md)
 
 Maintenance changes: [`Windows 1.0.24 companion refresh`](docs/RELEASE-1.0.24.md).
 
+## Linux fork
+
+This fork adds an x86_64 Linux desktop interface and CLI. See [Linux installation and usage](docs/LINUX.md). The **Linux build and verification** GitHub Actions workflow produces `.deb` and portable `.tar.gz` packages.
+
 ## Using it
 
 1. Unzip `1401-Windows-1.0.24.zip` and keep the `1401` folder together. Run `1401.exe` (it asks for administrator

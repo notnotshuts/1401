@@ -1,0 +1,44 @@
+name: Linux build and verification
+on:
+  push:
+    branches: [main, linux-port]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  linux:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-tk python3-certifi pciutils usbutils fdisk dosfstools udev xvfb
+      - name: Test disk safety and shared engine regressions
+        run: |
+          python3 -m unittest discover -s tests -v
+          python3 -m p1401.guide --selftest
+      - name: Exercise USB layout on a disposable loop image
+        run: sudo env PYTHONPATH="$GITHUB_WORKSPACE" python3 tests/linux_loop_smoke.py
+      - name: Build Linux packages
+        run: python3 tools/linux_release.py --output dist/linux
+      - name: Verify installed package and portable launcher
+        run: |
+          sudo apt-get install -y ./dist/linux/*.deb
+          1401 --help
+          1401 disks
+          mkdir -p "$RUNNER_TEMP/portable"
+          tar -xzf dist/linux/*.tar.gz -C "$RUNNER_TEMP/portable"
+          "$RUNNER_TEMP/portable/1401-linux-x86_64/1401" --help
+          xvfb-run -a python3 -c 'from p1401.linux import gui; import tkinter; original = tkinter.Tk; tkinter.Tk = lambda: schedule(original()); schedule = lambda root: (root.after(800, root.destroy), root)[1]; gui()'
+      - name: Upload Linux packages and checksums
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: 1401-linux-x86_64
+          path: dist/linux/*
+          if-no-files-found: error
+          retention-days: 30

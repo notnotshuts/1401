@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=1401 Linux
+Comment=Build OpenCore and create a macOS installer USB
+Exec=1401 gui
+Terminal=false
+Categories=System;Utility;

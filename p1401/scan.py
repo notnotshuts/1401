@@ -201,7 +201,21 @@ def _sniffer_body(out_dir, token):
     finally:
         scan_evidence.save_partial(out_dir, token, getattr(h.hardware_info, "result", {}))
     h.export_hardware_report()
-    h.dump_acpi_tables()
+    if platform.system() == "Linux":
+        # Copy sysfs directly. The packaged scan runs as root and must not invoke
+        # sudo interactively from a background child process.
+        import shutil
+        table_dir = "/sys/firmware/acpi/tables"
+        acpi_dir = os.path.join(out_dir, "ACPI")
+        os.makedirs(acpi_dir, exist_ok=True)
+        for folder, _, files in os.walk(table_dir):
+            for name in files:
+                relative = os.path.relpath(os.path.join(folder, name), table_dir)
+                destination = os.path.join(acpi_dir, relative.upper() + ".aml")
+                os.makedirs(os.path.dirname(destination), exist_ok=True)
+                shutil.copyfile(os.path.join(folder, name), destination)
+    else:
+        h.dump_acpi_tables()
     acpi = os.path.join(out_dir, "ACPI")
     if platform.system() == "Windows":
         for note in windows_tables(acpi):   # anything acpidump missed (FACP, MCFG, ...), straight from Windows

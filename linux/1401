@@ -1,0 +1,18 @@
+#!/bin/sh
+set -eu
+# Run from a writable private runtime: the upstream engine installs iasl beside itself.
+base=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+if [ -d "$base/runtime" ]; then source_dir="$base/runtime"; else source_dir=/usr/lib/1401; fi
+version=$(cat "$source_dir/LINUX_VERSION")
+cache="${XDG_CACHE_HOME:-$HOME/.cache}/1401/runtime-$version"
+if [ ! -f "$cache/.ready" ]; then
+    mkdir -p "$(dirname -- "$cache")"
+    temp=$(mktemp -d "$(dirname -- "$cache")/.runtime.XXXXXX")
+    trap 'rm -rf -- "$temp"' EXIT HUP INT TERM
+    cp -R "$source_dir/." "$temp/"
+    touch "$temp/.ready"
+    if [ ! -d "$cache" ]; then mv "$temp" "$cache"; fi
+fi
+export PYTHONPATH="$cache"
+export PYTHONNOUSERSITE=1
+exec /usr/bin/python3 -m p1401.linux "$@"
