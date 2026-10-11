@@ -354,33 +354,40 @@ class Application(ctk.CTk):
         threading.Thread(target=worker, daemon=True).start()
 
     def poll(self):
-        while not self.events.empty():
-            kind, value = self.events.get()
-            if kind == 'log':
-                self.append_log(value)
-                self.operation_output.append(value)
-                self.operation_output = self.operation_output[-40:]
-                if self.operation == 'disks':
-                    try:
-                        disk = json.loads(value)
-                        if isinstance(disk, dict): self.disk_results.append(disk)
-                    except ValueError: pass
-                match = re.search(r'Download (\d+)/(\d+)', value)
-                if match and int(match[2]):
-                    self.progress.stop(); self.progress.configure(mode='determinate'); self.progress.set(int(match[1]) / int(match[2]))
-            else:
-                code, callback = value
-                self.busy = False; self.progress.stop(); self.progress.configure(mode='determinate'); self.progress.set(1 if code == 0 else 0)
-                for control in self.action_controls: control.configure(state='normal')
-                self.status_label.configure(text='Операция завершена' if code == 0 else f'Операция остановлена (код {code}). Причина — в журнале.', text_color=GREEN if code == 0 else RED)
-                if callback:
-                    try: callback(code)
-                    except Exception as error:
-                        self.fail(f'Не удалось прочитать результат: {error}\n' + self.last_error())
-                self.update_gates()
-                try: self.save_settings()
-                except OSError as error: self.append_log('Не удалось сохранить настройки: ' + str(error) + '\n')
-        self.after(80, self.poll)
+        try:
+            pending = []
+            for _ in range(200):
+                try: kind, value = self.events.get_nowait()
+                except queue.Empty: break
+                if kind == 'log':
+                    pending.append(value)
+                    self.operation_output.append(value)
+                    self.operation_output = self.operation_output[-40:]
+                    if self.operation == 'disks':
+                        try:
+                            disk = json.loads(value)
+                            if isinstance(disk, dict): self.disk_results.append(disk)
+                        except ValueError: pass
+                    match = re.search(r'Download (\d+)/(\d+)', value)
+                    if match and int(match[2]):
+                        self.progress.stop(); self.progress.configure(mode='determinate'); self.progress.set(int(match[1]) / int(match[2]))
+                else:
+                    if pending:
+                        self.append_log(''.join(pending)); pending.clear()
+                    code, callback = value
+                    self.busy = False; self.progress.stop(); self.progress.configure(mode='determinate'); self.progress.set(1 if code == 0 else 0)
+                    for control in self.action_controls: control.configure(state='normal')
+                    self.status_label.configure(text='Операция завершена' if code == 0 else f'Операция остановлена (код {code}). Причина — в журнале.', text_color=GREEN if code == 0 else RED)
+                    if callback:
+                        try: callback(code)
+                        except Exception as error:
+                            self.fail(f'Не удалось прочитать результат: {error}\n' + self.last_error())
+                    self.update_gates()
+                    try: self.save_settings()
+                    except OSError as error: self.append_log('Не удалось сохранить настройки: ' + str(error) + '\n')
+            if pending: self.append_log(''.join(pending))
+        finally:
+            self.after(80, self.poll)
 
     def prepare(self):
         if self.busy: return
@@ -449,7 +456,7 @@ class Application(ctk.CTk):
         # A previous result can never stand in for a failed new check.
         if self.busy: return
         self.analysis = None
-        self.start(['check', self.report_file, '--macos', str(self.major), '--output', str(path)],
+        self.start(['check', self.report_file, '--macos', str(self.major), '--output', str(path), '--quiet'],
                    'Проверка совместимости оборудования…', lambda _: self.load_analysis(path))
 
     def load_analysis(self, path):

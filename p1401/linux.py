@@ -53,6 +53,7 @@ def parser():
     p = sub.add_parser('check', help='check hardware compatibility using OpCore-Simplify rules')
     p.add_argument('report'); p.add_argument('--macos', type=int, default=24, choices=range(19, 26))
     p.add_argument('--output')
+    p.add_argument('--quiet', action='store_true', help='save full JSON to --output and print a concise status')
     sub.add_parser('disks', help='list disks and whether they can be erased')
     p = sub.add_parser('guide'); p.add_argument('report'); p.add_argument('build'); p.add_argument('output')
     p = sub.add_parser('write', help='ERASE a USB disk and create a macOS installer (requires root)')
@@ -81,7 +82,11 @@ def main(argv=None):
             from . import linux_hardware
             result = linux_hardware.analyze(a.report, a.macos)
             if a.output: linux_hardware.save(result, a.output)
-            print(json.dumps(result, indent=2, ensure_ascii=False))
+            if a.quiet:
+                if not a.output: raise ValueError('--quiet requires --output')
+                print('Compatibility: ' + ('OK' if result['ok'] else 'blocked') + '; report: ' + a.output)
+                for message in result['blockers'] + result['warnings']: print(message)
+            else: print(json.dumps(result, indent=2, ensure_ascii=False))
             return 0 if result['ok'] else 1
         elif a.command in ('plan', 'build'):
             args = [a.command, str(Path(a.report).expanduser().resolve()), str(Path(a.acpi).expanduser().resolve())]
