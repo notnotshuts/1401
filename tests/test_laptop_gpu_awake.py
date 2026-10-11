@@ -37,6 +37,22 @@ class Awake(unittest.TestCase):
         c, _ = self.run_apply(result("Laptop", path="PciRoot(0x0)/garbage"))
         self.assertEqual(c["DeviceProperties"]["Add"], {})
 
+    def test_panel_warning_handles_linux_connector_types_and_routing(self):
+        hardware = result('Laptop').hardware
+        hardware['GPU']['Intel UHD'] = {'Compatibility': (None, None)}
+        for connector in ('Internal', 'eDP', 'LVDS'):
+            with self.subTest(connector=connector):
+                panel = {'Connector Type': connector, 'Connected GPU': 'Intel UHD'}
+                hardware['Monitor'] = {'Panel': panel}
+                self.assertIn('Intel UHD', nullmoth.mux_help(hardware))
+                panel['Connected GPU'] = 'RTX 4060 Laptop'
+                self.assertIsNone(nullmoth.mux_help(hardware))
+        hardware['Monitor']['Panel'] = {'Connector Type': 'HDMI', 'Connected GPU': 'Intel UHD'}
+        self.assertIsNone(nullmoth.mux_help(hardware))
+        hardware['Monitor']['Panel']['Connector Type'] = 'eDP'
+        hardware['GPU']['Intel UHD']['Compatibility'] = ('24.99.99', '19.0.0')
+        self.assertIsNone(nullmoth.mux_help(hardware))
+
 
 if __name__ == "__main__":
     unittest.main()

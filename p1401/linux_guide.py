@@ -1,5 +1,5 @@
 """Russian Linux handoff, derived from the verified EFI rather than Windows UI steps."""
-from . import guide
+from . import guide, nullmoth
 
 VALUES = {'Off': 'выключить', 'On': 'включить', 'On if you have it': 'включить, если доступно',
           '64M or more': '64 МБ или больше', 'Leave it Enabled': 'оставить включённым',
@@ -42,6 +42,15 @@ def render(report, config, profile):
     disabled = profile.get('disabled_devices', {})
     if disabled:
         lines += ['', 'Отключённые устройства в EFI: ' + str(disabled), 'Подключите монитор и сеть к поддерживаемым устройствам.']
+    for monitor in report.get('Monitor', {}).values():
+        gpu_name = monitor.get('Connected GPU')
+        gpu = report.get('GPU', {}).get(gpu_name)
+        if (monitor.get('Connector Type') in ('Internal', 'eDP', 'LVDS') and gpu
+                and nullmoth.gpu_disabled(gpu_name, gpu, disabled)):
+            lines += ['', f'Встроенный экран подключён к {gpu_name}, отключённой в этой EFI.',
+                      'Перед установкой проверьте аппаратный MUX и режим Discrete GPU либо выход для внешнего монитора, физически подключённый к активной видеокарте.',
+                      'После переключения MUX повторите сканирование и сборку. Изменение config.plist не меняет физическое подключение панели.']
+            break
     lines += ['', '4. Загрузитесь с флешки',
               f'Меню загрузки: {keys[1] if keys else "по инструкции к ПК (часто F12, F11 или Esc)"}. Выберите USB с пометкой UEFI.',
               'В меню OpenCore выберите Apple Recovery / установщик (запись с .dmg).', '',

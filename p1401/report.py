@@ -158,8 +158,14 @@ def normalized_copy(report_path, dest_dir, raw_hardware=None):
 
 
 def configure_validator(validator):
-    """An unreadable Linux EFI variable must remain Unknown, rather than falsely Disabled."""
+    """Adapt Linux firmware evidence without changing the pinned upstream sources."""
     schema = getattr(validator, 'SCHEMA', None)
     if schema:
         schema['schema']['BIOS']['schema']['Secure Boot']['pattern'] = r'^(Enabled|Disabled|Unknown)$'
+        # Linux enumerates processors, thermal zones and the namespace root as
+        # system devices too. They need not live under the system bus (_SB).
+        # Accept ACPI NameSeg paths (short or underscore-padded), retaining the
+        # original path and rejecting malformed names instead of dropping it.
+        system = schema['schema']['System Devices']['values_rule']['schema']
+        system['ACPI Path']['pattern'] = r'^(?:\\|\\?[A-Z_][A-Z0-9_]{0,3}(?:\.[A-Z_][A-Z0-9_]{0,3})*)\Z'
     return validator

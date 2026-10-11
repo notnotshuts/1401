@@ -13,3 +13,12 @@ class LinuxGuide(unittest.TestCase):
         self.assertIn('оставить выключенным', text); self.assertIn('обход CFG Lock', text)
         self.assertIn('не приостанавливает BitLocker', text)
         self.assertNotIn('Restart into BIOS setup', text)
+
+    def test_disabled_panel_gpu_is_explained_before_boot_steps(self):
+        hardware = {'GPU': {'Intel UHD': {'Device Type': 'Integrated GPU'}},
+                    'Monitor': {'Panel': {'Connector Type': 'eDP', 'Connected GPU': 'Intel UHD'}}}
+        with patch.object(guide, 'bios_settings', return_value=[]):
+            text = linux_guide.render(hardware, {}, {'disabled_devices': {'Integrated GPU: Intel UHD': {}}})
+            self.assertIn('Встроенный экран подключён к Intel UHD', text)
+            self.assertLess(text.index('Встроенный экран'), text.index('4. Загрузитесь'))
+            self.assertNotIn('Встроенный экран', linux_guide.render(hardware, {}, {}))

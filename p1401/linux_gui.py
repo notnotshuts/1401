@@ -210,7 +210,10 @@ class Application(ctk.CTk):
         self.log = ctk.CTkTextbox(page, fg_color='#0c1017', font=ctk.CTkFont(family='monospace', size=12), wrap='word')
         self.log.pack(fill='both', expand=True)
         self.button(page, 'Сохранить журнал…', self.export_log, width=200, fg_color='#33425b').pack(anchor='w', pady=(12, 0))
-        self.append_log('1401 Linux готов. Проверка железа использует правила OpCore-Simplify.\n')
+        try: version = (REPO / 'LINUX_VERSION').read_text().strip()
+        except OSError: version = 'из исходников'
+        self.append_log(f'1401 Linux {version} · схема проверки {SCHEMA}\n')
+        self.append_log('Готово. Проверка железа использует правила OpCore-Simplify.\n')
 
     def show(self, key):
         self.current_page = key; self.pages[key].tkraise()
@@ -472,8 +475,11 @@ class Application(ctk.CTk):
             if len(messages) > 2 or any(len(str(message)) > 240 for message in messages):
                 summary += '\nПолные замечания доступны в журнале и compatibility.json.'
         summary += '\nACPI: ' + ('DSDT найдена.' if self.acpi_ready() else 'DSDT не найдена — для сборки требуется полный ACPI dump.')
-        self.hardware_summary.configure(text=summary, text_color=MUTED if data.get('ok') else AMBER)
-        self.summary_labels['compat'].configure(text='Подходит выбранная macOS' if data.get('ok') else 'Есть ограничения', text_color=GREEN if data.get('ok') else AMBER)
+        clean = data.get('ok') and not messages
+        self.hardware_summary.configure(text=summary, text_color=MUTED if clean else AMBER)
+        compatibility = ('Подходит выбранная macOS' if clean else
+                         'Сборка возможна, есть замечания' if data.get('ok') else 'Есть ограничения')
+        self.summary_labels['compat'].configure(text=compatibility, text_color=GREEN if clean else AMBER)
         for index, device in enumerate(data.get('devices', [])):
             card = ctk.CTkFrame(self.hardware_rows, fg_color=CARD)
             card.grid(row=index, column=0, sticky='ew', pady=5); card.grid_columnconfigure(0, weight=1)

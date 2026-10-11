@@ -75,7 +75,7 @@ def mux_help(report):
     (10-07: five uploaded logs in one night were RTX 4060/5060/5070 Ti laptops in Optimus mode.)"""
     mons = list((report.get("Monitor") or {}).values())
     for n, g in cards(report).items():
-        panel = [m for m in mons if m.get("Connector Type") == "Internal" and m.get("Connected GPU", n) != n]
+        panel = [m for m in mons if m.get("Connector Type") in ("Internal", "eDP", "LVDS") and m.get("Connected GPU", n) != n]
         if panel:
             integrated = (report.get("GPU") or {}).get(panel[0].get("Connected GPU"), {})
             compatibility = integrated.get("Compatibility")
