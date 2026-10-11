@@ -36,7 +36,7 @@ Section: utils
 Priority: optional
 Architecture: amd64
 Maintainer: 1401 Linux fork contributors
-Depends: python3 (>= 3.10), python3-tk, python3-certifi, pciutils, usbutils, util-linux, fdisk, dosfstools, udev, sudo
+Depends: python3 (>= 3.10), python3-tk, python3-certifi, pciutils, usbutils, util-linux, fdisk, dosfstools, udev, sudo, acpica-tools
 Description: Linux interface for the 1401 OpenCore installer builder
  Local hardware scan, EFI build, BIOS guide and guarded USB creation.
 ''')

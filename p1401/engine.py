@@ -263,6 +263,17 @@ def _load_engine():
     spec = importlib.util.spec_from_file_location("ocs_main", os.path.join(UPSTREAM, "OpCore-Simplify.py"))
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
+    if sys.platform.startswith("linux"):
+        # Distribution iasl is linked against the host glibc. The upstream
+        # downloadable Linux binary currently needs GLIBC_2.38 and cannot run
+        # on supported Ubuntu 22.04 / Debian 12 hosts.
+        from Scripts import dsdt as dsdt_mod
+        def linux_iasl(self, legacy=False, try_downloading=True):
+            path = shutil.which("iasl")
+            if not path:
+                raise RuntimeError("Linux builds require iasl: install the acpica-tools system package.")
+            return path
+        dsdt_mod.DSDT.check_iasl = linux_iasl
     _patient_downloads()
     _dsdt_signature_fix()
     from . import tls  # noqa: PLC0415

@@ -18,7 +18,7 @@ sudo apt install ./p1401-linux_*_amd64.deb
 
 For other x86_64 distributions, install Python 3.10+, Tkinter, certifi, pciutils,
 usbutils, util-linux (including lsblk, mount, umount and sfdisk), dosfstools, udev
-and sudo. Extract the `.tar.gz`, then run `./1401-linux-x86_64/1401`.
+sudo and acpica-tools (`iasl`). Extract the `.tar.gz`, then run `./1401-linux-x86_64/1401`.
 The launcher copies its engine into a versioned private cache, so packages under
 `/usr/lib` stay writable only to the package manager and downloads work as a
 normal user. Native builds and package smoke tests run on Ubuntu 22.04 x86_64.
@@ -42,7 +42,7 @@ sudo 1401 write /dev/sdX /path/to/work/build \
 25 = Tahoe 26. Review the build result and BIOS guide before booting the USB.
 Scanning requires access to `/sys/firmware/acpi/tables`; containers, VMs without
 ACPI, ARM and non-x86 machines are not supported hardware targets. Builds need
-internet to fetch OpenCore, kexts and ACPI tools. No automatic log submission is
+internet to fetch OpenCore, kexts and ACPI data. The ACPI compiler `iasl` comes from the distribution’s acpica-tools package. No automatic log submission is
 added by this port.
 
 ## USB safeguards and limits

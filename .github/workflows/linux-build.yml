@@ -17,7 +17,7 @@ jobs:
       - name: Install Linux dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y python3-tk python3-certifi pciutils usbutils fdisk dosfstools udev xvfb
+          sudo apt-get install -y python3-tk python3-certifi pciutils usbutils fdisk dosfstools udev xvfb acpica-tools
       - name: Test disk safety and shared engine regressions
         run: |
           python3 -m unittest discover -s tests -v
