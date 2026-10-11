@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import subprocess
 import tempfile
+from unittest.mock import patch
 
 ap = argparse.ArgumentParser()
 ap.add_argument('--output', required=True); ap.add_argument('--report'); ap.add_argument('--analysis')
@@ -31,6 +32,22 @@ with tempfile.TemporaryDirectory() as td:
         assert app.analysis_current()
         assert app.build_button.cget('state') == 'normal', app.analysis
         capture('hardware.png')
+        # Wizard reuses a current report, checks it, then advances only with ACPI.
+        with patch.object(app, 'check') as check, patch.object(app, 'build_ready', return_value=False):
+            app.prepare()
+            check.assert_called_once()
+            assert app.wizard
+        with patch.object(app, 'build') as build:
+            app.continue_prepare()
+            build.assert_called_once()
+        with patch.object(app, 'acpi_ready', return_value=False), patch.object(app, 'build') as build:
+            app.continue_prepare()
+            build.assert_not_called()
+            assert not app.wizard
+        # Old checker snapshots must be rejected even for an unchanged report.
+        app.analysis['schema'] = 1
+        assert not app.analysis_current()
+        app.analysis['schema'] = 2
         # A changed target invalidates the old analysis and disables build immediately.
         app.macos.set('macOS Tahoe 26'); app.update_gates()
         assert app.build_button.cget('state') == 'disabled'

@@ -30,3 +30,33 @@ class HardwareCompatibility(unittest.TestCase):
 
 
 if __name__ == '__main__': unittest.main()
+
+class VersionIntersection(unittest.TestCase):
+    def hardware(self, gpus):
+        return {'CPU': {'Compatibility': [25, 19]}, 'GPU': gpus,
+                'Storage Controllers': {'SSD': {'Bus Type': 'PCI', 'Disk Drives': ['SSD'], 'Compatibility': [25, 19]}}}
+
+    def test_gpu_gaps_not_bridged_by_aggregate_range(self):
+        h = self.hardware({'old': {'Compatibility': [20, 19]}, 'new': {'Compatibility': [25, 24]}})
+        native, patched = hw.compatible_versions(h, [25, 19], None)
+        self.assertEqual(native, [19, 20, 24, 25]); self.assertEqual(patched, [])
+
+    def test_wifi_patch_cannot_rescue_unsupported_gpu(self):
+        h = self.hardware({'old': {'Compatibility': [22, 19]}})
+        self.assertEqual(hw.compatible_versions(h, [22, 19], [25, 23]), ([19, 20, 21, 22], []))
+
+    def test_gpu_patch_obeys_storage_and_cpu_limits(self):
+        h = self.hardware({'old': {'Compatibility': [22, 19], 'OCLP Compatibility': [25, 23]}})
+        h['CPU']['Compatibility'] = [24, 19]
+        h['Storage Controllers']['SSD']['Compatibility'] = [23, 19]
+        self.assertEqual(hw.compatible_versions(h, [22, 19], [25, 23]), ([19, 20, 21, 22], [23]))
+
+    def test_unobserved_storage_is_not_success(self):
+        h = self.hardware({'new': {'Compatibility': [25, 19]}})
+        del h['Storage Controllers']['SSD']['Disk Drives']
+        self.assertEqual(hw.compatible_versions(h, [25, 19], None), ([], []))
+
+    def test_malformed_and_reversed_ranges(self):
+        for value in ['bad', ['oops', 19], [19, 25], {}, [25, None], [[], 19]]:
+            with self.subTest(value=value): self.assertFalse(hw.supports(value, 24))
+        self.assertTrue(hw.supports([24, 24], 24))

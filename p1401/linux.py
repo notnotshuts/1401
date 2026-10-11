@@ -17,11 +17,10 @@ def child(*args):
 
 
 def make_guide(report_path, build, output):
-    from . import guide, machine_handoff
+    from . import guide, machine_handoff, linux_guide
     rep, cfg = guide.load(report_path, str(Path(build) / 'EFI/OC/config.plist'))
     profile = machine_handoff.verified(build, report_path)
-    steps = guide.build_guide(rep, cfg, disabled_devices=profile.get('disabled_devices', {}))
-    Path(output).write_text(guide.render_text(steps), encoding='utf-8')
+    Path(output).write_text(linux_guide.render(rep, cfg, profile), encoding='utf-8')
     print(f'BIOS guide: {output}')
 
 

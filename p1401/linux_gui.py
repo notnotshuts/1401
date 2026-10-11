@@ -58,6 +58,8 @@ class Application(ctk.CTk):
         self.macos = StringVar(value=settings.get('macos', 'macOS Sequoia 15'))
         if self.macos.get() not in MACOS: self.macos.set('macOS Sequoia 15')
         self.disk = StringVar(value='Выберите USB-накопитель')
+        self.wizard = False
+        self.disk_results = []; self.operation = None
         self.events = queue.Queue(); self.busy = False; self.analysis = None; self.disks = {}
         self.action_controls = []; self.pages = {}; self.nav = {}; self.current_page = 'overview'
         self.grid_columnconfigure(1, weight=1); self.grid_rowconfigure(0, weight=1)
@@ -131,7 +133,10 @@ class Application(ctk.CTk):
         intro = ctk.CTkFrame(page, fg_color=CARD); intro.grid(row=1, column=0, columnspan=3, sticky='ew', pady=18)
         self.label(intro, 'От проверки ПК до установочной флешки', 23).pack(anchor='w', padx=22, pady=(20, 10))
         self.label(intro, '1. Сканируйте этот ПК или загрузите Report.json.\n2. Проверьте устройства и выберите совместимую macOS.\n3. Соберите и проверьте EFI, затем прочитайте шаги BIOS.\n4. Выберите USB-накопитель и подтвердите его очистку.', 15, MUTED, justify='left').pack(anchor='w', padx=22, pady=(0, 18))
-        self.button(intro, 'Начать проверку железа', lambda: self.show('hardware'), width=230).pack(anchor='w', padx=22, pady=(0, 22))
+        self.wizard_button = self.button(intro, 'Подготовить всё автоматически', self.prepare, width=285)
+        self.wizard_button.pack(anchor='w', padx=22, pady=(0, 10))
+        self.wizard_note = self.label(intro, 'Сканирование → совместимая macOS → EFI → личный гайд. Затем выберите USB.', 13, MUTED, wraplength=760, justify='left')
+        self.wizard_note.pack(anchor='w', padx=22, pady=(0, 22))
         self.label(page, 'Поддержка по правилам не гарантирует загрузку macOS.\nМаршрутизацию дисплея, USB-порты и работу драйверов нужно проверить на самом ПК.', 13, MUTED, justify='left').grid(row=2, column=0, columnspan=3, sticky='w', pady=8)
 
     def _hardware(self):
@@ -151,6 +156,8 @@ class Application(ctk.CTk):
         self.version_picker = ctk.CTkOptionMenu(row, values=list(MACOS), variable=self.macos, command=lambda _: self.change_version(), width=235)
         self.version_picker.pack(side='left'); self.action_controls.append(self.version_picker)
         self.hardware_summary = self.label(page, 'Загрузите отчёт, чтобы увидеть устройства и диапазоны поддержки.', 13, MUTED, anchor='w', justify='left', wraplength=820)
+        self.recommend_button = self.button(row, 'Выбрать рекомендуемую', self.use_recommended, width=210, fg_color='#33425b')
+        self.recommend_button.pack(side='left', padx=12)
         self.hardware_summary.grid(row=3, column=0, sticky='ew', pady=12)
         self.hardware_rows = ctk.CTkScrollableFrame(page, fg_color=BG, label_text='Устройства и совместимость')
         self.hardware_rows.grid(row=4, column=0, sticky='nsew'); self.hardware_rows.grid_columnconfigure(0, weight=1)
@@ -169,6 +176,8 @@ class Application(ctk.CTk):
         page = self.pages['guide']
         self.label(page, 'Шаги BIOS для этой конфигурации', 23).pack(anchor='w', pady=(0, 14))
         self.guide_button = self.button(page, 'Подготовить руководство', self.guide, width=220); self.guide_button.pack(anchor='w')
+        self.button(page, 'Сохранить гайд…', self.export_guide, width=220, fg_color='#33425b').pack(anchor='w', pady=(10, 0))
+        self.button(page, 'Далее: выбрать USB →', self.open_usb, width=220).pack(anchor='w', pady=(10, 0))
         self.guide_text = ctk.CTkTextbox(page, fg_color=CARD, wrap='word', font=ctk.CTkFont(size=14))
         self.guide_text.pack(fill='both', expand=True, pady=18)
         self.set_text(self.guide_text, 'После успешной сборки EFI здесь появятся требования прошивки и шаги установки.')
@@ -232,7 +241,7 @@ class Application(ctk.CTk):
         if Path(self.report_path.get()).is_file(): self.check()
 
     def analysis_current(self):
-        if not self.analysis or self.analysis.get('target') != self.major: return False
+        if not self.analysis or self.analysis.get('schema') != 2 or self.analysis.get('target') != self.major: return False
         try:
             path = Path(self.report_path.get())
             if path.stat().st_size > 16 * 1024 * 1024: return False
@@ -248,7 +257,10 @@ class Application(ctk.CTk):
         from .machine_handoff import verified
         try:
             profile = verified(str(self.build_dir), self.report_path.get())
-            return int(profile['macos_version'].split('.')[0]) == self.major
+            from .report import acpi_fingerprints
+            return (int(profile['macos_version'].split('.')[0]) == self.major
+                    and bool(profile.get('acpi_fingerprints'))
+                    and profile['acpi_fingerprints'] == acpi_fingerprints(self.acpi_path.get()))
         except (OSError, ValueError, KeyError, RuntimeError): return False
 
     def update_gates(self):
@@ -256,6 +268,9 @@ class Application(ctk.CTk):
         self.build_button.configure(state='normal' if ready and not self.busy else 'disabled')
         built = self.build_ready()
         self.guide_button.configure(state='normal' if built and not self.busy else 'disabled')
+        recommendation = (self.analysis or {}).get('recommended_target')
+        self.recommend_button.configure(state='normal' if recommendation and recommendation != self.major and not self.busy else 'disabled')
+        self.wizard_button.configure(state='disabled' if self.busy else 'normal', text='Открыть гайд и подготовить USB' if built else 'Подготовить всё автоматически')
         disk = self.disks.get(self.disk.get())
         self.write_button.configure(state='normal' if built and disk and disk.get('eligible') and disk.get('SerialNumber') and not self.busy else 'disabled')
         self.summary_labels['scan'].configure(text='Загружен' if Path(self.report_path.get()).is_file() else 'Не загружен')
@@ -278,8 +293,11 @@ class Application(ctk.CTk):
     def start(self, args, title, callback=None, privileged=False):
         if self.busy: return
         command = self.command(args, privileged)
-        if command is None: return
+        if command is None:
+            self.wizard = False
+            return
         self.work.mkdir(parents=True, exist_ok=True)
+        self.operation = args[0]
         self.busy = True; self.progress.configure(mode='indeterminate'); self.progress.start()
         self.status_label.configure(text=title, text_color=MUTED)
         self.append_log('\n' + title + '\n' + shlex.join(command) + '\n')
@@ -299,6 +317,11 @@ class Application(ctk.CTk):
             kind, value = self.events.get()
             if kind == 'log':
                 self.append_log(value)
+                if self.operation == 'disks':
+                    try:
+                        disk = json.loads(value)
+                        if isinstance(disk, dict): self.disk_results.append(disk)
+                    except ValueError: pass
                 match = re.search(r'Download (\d+)/(\d+)', value)
                 if match and int(match[2]):
                     self.progress.stop(); self.progress.configure(mode='determinate'); self.progress.set(int(match[1]) / int(match[2]))
@@ -310,15 +333,57 @@ class Application(ctk.CTk):
                 if callback:
                     try: callback(code)
                     except Exception as error:
+                        self.wizard = False
                         self.append_log(f'Не удалось прочитать результат: {error}\n')
                         self.status_label.configure(text='Не удалось прочитать результат. См. журнал.', text_color=RED)
                 self.update_gates(); self.save_settings()
         self.after(80, self.poll)
 
+    def prepare(self):
+        if self.busy: return
+        if self.build_ready():
+            self.show('guide'); self.guide(); return
+        self.wizard = True
+        if Path(self.report_path.get()).is_file():
+            self.show('hardware'); self.check()
+        else:
+            self.show('hardware'); self.scan()
+
+    def use_recommended(self):
+        target = (self.analysis or {}).get('recommended_target')
+        if target not in VERSIONS: return
+        self.macos.set(next(name for name, n in MACOS.items() if int(n) == target))
+        self.append_log(f'Выбрана рекомендуемая версия: {self.macos.get()}\n')
+        self.check()
+
+    def continue_prepare(self):
+        if not self.wizard: return
+        if not self.analysis.get('ok'):
+            if self.analysis.get('recommended_target'):
+                self.use_recommended(); return
+            self.wizard = False
+            self.show('hardware')
+            self.wizard_note.configure(text='Подготовка остановлена: исправьте замечания в разделе «Проверка железа».')
+        elif not self.acpi_ready():
+            self.wizard = False
+            self.show('hardware')
+            self.hardware_summary.configure(text=self.hardware_summary.cget('text') + '\nВыберите папку ACPI рядом с импортированным отчётом, затем повторите подготовку.')
+        else:
+            self.show('build'); self.build()
+
+    def open_usb(self):
+        self.show('usb'); self.refresh_disks()
+
     def scan(self):
         path = self.work / 'scan'
         self.report_path.set(str(path / 'Report.json')); self.acpi_path.set(str(path / 'ACPI'))
-        self.start(['scan', str(path)], 'Сканирование оборудования и ACPI…', lambda code: self.check() if code == 0 else None, privileged=True)
+        self.start(['scan', str(path)], 'Сканирование оборудования и ACPI…', self.scan_complete, privileged=True)
+
+    def scan_complete(self, code):
+        if code == 0: self.check()
+        else:
+            self.wizard = False
+            self.hardware_summary.configure(text='Сканирование не завершилось. Проверьте права администратора и журнал; можно импортировать Report.json и ACPI.')
 
     def check(self):
         path = self.work / 'compatibility.json'
@@ -330,7 +395,7 @@ class Application(ctk.CTk):
     def load_analysis(self, path):
         self.analysis = read_json(path)
         if not self.analysis: raise RuntimeError('Проверка не сохранила результат.')
-        self.render_hardware(); self.update_gates()
+        self.render_hardware(); self.update_gates(); self.continue_prepare()
 
     def render_hardware(self):
         data = self.analysis
@@ -357,7 +422,8 @@ class Application(ctk.CTk):
             details = ' • '.join(f'{k}: {v}' for k, v in props.items() if k in ('Device ID', 'Codename', 'Core Count', 'Chipset', 'Firmware Type', 'SIMD Features', 'Bus Type', 'Connector Type', 'Resolution', 'Secure Boot', 'Platform', 'CPU Count'))
             def range_text(value):
                 if not value or not all(value): return 'нет'
-                return f'Darwin {value[1]} — {value[0]}'
+                from .linux_hardware import supports
+                return ', '.join(name for n, name in VERSIONS.items() if supports(value, n)) or 'нет среди доступных версий'
             if device['native'] is not None: details += '\nПоддержка: ' + range_text(device['native'])
             if device['oclp']: details += ' • OCLP: ' + range_text(device['oclp'])
             self.label(card, details or 'Сведения из отчёта; совместимость не оценивается этой группой правил.', 12, MUTED, wraplength=730, justify='left', anchor='w').grid(row=2, column=0, columnspan=2, sticky='ew', padx=16, pady=(0, 12))
@@ -370,7 +436,7 @@ class Application(ctk.CTk):
         self.start(['build', self.report_path.get(), self.acpi_path.get(), str(self.build_dir), '--macos', str(self.major), '--result', str(result)],
                    'Сборка и проверка OpenCore EFI…', lambda _: self.load_build(result))
 
-    def load_build(self, path):
+    def load_build(self, path, advance=True):
         result = read_json(path)
         if not result: raise RuntimeError('Нет результата сборки; см. журнал.')
         lines = ['EFI проверена' if result.get('ok') else 'Сборка остановлена',
@@ -382,21 +448,30 @@ class Application(ctk.CTk):
         lines.extend(result.get('notices', []))
         if result.get('error'): lines.append(result['error'])
         self.set_text(self.build_result, '\n\n'.join(lines))
+        if advance and result.get('ok') and self.build_ready():
+            self.wizard = False
+            self.show('guide'); self.guide()
+        elif advance:
+            self.wizard = False
+            self.show('build')
 
     def guide(self):
         path = self.work / 'BIOS.txt'
+        if path.exists(): path.unlink()
+        self.set_text(self.guide_text, 'Создание личного гайда для текущей проверенной EFI…')
         self.start(['guide', self.report_path.get(), str(self.build_dir), str(path)], 'Подготовка шагов BIOS…',
                    lambda code: self.set_text(self.guide_text, path.read_text(encoding='utf-8')) if code == 0 else None)
 
     def refresh_disks(self):
+        if self.busy: return
+        self.disk_results = []
         self.start(['disks'], 'Поиск USB-накопителей…', self.load_disks)
 
     def load_disks(self, code):
         self.disks.clear()
         if code == 0:
-            # Disk JSON is also in the log; read-only discovery is cheap and has no engine package conflict.
-            from .linux_usb import list_disks, eligible
-            for disk in list_disks():
+            from .linux_usb import eligible
+            for disk in self.disk_results:
                 if disk['BusType'] != 'USB': continue
                 ok, reasons = eligible(disk)
                 if not disk.get('SerialNumber'): ok = False; reasons.append('нет стабильного серийного номера')
@@ -404,7 +479,9 @@ class Application(ctk.CTk):
                 label = f'{disk["Path"]} · {disk["FriendlyName"] or "USB"} · {disk["Size"] / 2**30:.1f} GiB' + ('' if ok else ' · недоступен')
                 self.disks[label] = disk
         values = list(self.disks) or ['USB-накопители не обнаружены']
-        self.disk_picker.configure(values=values); self.disk.set(values[0]); self.select_disk()
+        self.disk_picker.configure(values=values)
+        self.disk.set(next((label for label, d in self.disks.items() if d['eligible']), values[0]))
+        self.select_disk()
 
     def select_disk(self):
         disk = self.disks.get(self.disk.get())
@@ -420,20 +497,34 @@ class Application(ctk.CTk):
         dialog = ctk.CTkInputDialog(text=f'Будут удалены ВСЕ данные на {disk["Path"]}\n{disk["FriendlyName"]} · {disk["Size"] / 2**30:.1f} GiB\n\nВведите путь диска для подтверждения:', title='Подтвердить очистку USB')
         if dialog.get_input() != disk['Path']: return
         self.start(['write', disk['Path'], str(self.build_dir), '--profile', self.report_path.get(), '--darwin', str(self.major), '--confirm-erase', disk['Path']],
-                   'Загрузка восстановления и запись USB…', privileged=True)
+                   'Загрузка восстановления и запись USB…', self.write_complete, privileged=True)
+
+    def write_complete(self, code):
+        if code != 0: return
+        self.show('guide')
+        self.status_label.configure(text='USB записан и проверен. Следующий шаг — BIOS и загрузка с USB.', text_color=GREEN)
+        messagebox.showinfo('Флешка готова', 'Запись и проверка завершены.\nСфотографируйте гайд, настройте BIOS и выберите USB (UEFI) в меню загрузки.')
 
     def restore(self):
         path = self.work / 'compatibility.json'
         self.analysis = read_json(path)
         if self.analysis_current(): self.render_hardware()
         else: self.analysis = None
-        if read_json(self.work / 'build-result.json'): self.load_build(self.work / 'build-result.json')
+        if read_json(self.work / 'build-result.json'): self.load_build(self.work / 'build-result.json', advance=False)
         if (self.work / 'BIOS.txt').is_file(): self.set_text(self.guide_text, (self.work / 'BIOS.txt').read_text(encoding='utf-8'))
         self.update_gates()
 
     def save_settings(self):
         self.settings_path.parent.mkdir(parents=True, exist_ok=True)
         self.settings_path.write_text(json.dumps({'workspace': str(self.work), 'report': self.report_path.get(), 'acpi': self.acpi_path.get(), 'macos': self.macos.get()}, ensure_ascii=False), encoding='utf-8')
+
+    def export_guide(self):
+        if not self.build_ready():
+            messagebox.showinfo('Нужна сборка', 'Сначала соберите проверенную EFI для текущего отчёта и ACPI.'); return
+        path = self.work / 'BIOS.txt'
+        if not path.is_file(): self.guide(); return
+        destination = filedialog.asksaveasfilename(defaultextension='.txt', initialfile='1401-install-guide.txt')
+        if destination: Path(destination).write_text(path.read_text(encoding='utf-8'), encoding='utf-8')
 
     def export_log(self):
         path = filedialog.asksaveasfilename(defaultextension='.txt', initialfile='1401-log.txt')

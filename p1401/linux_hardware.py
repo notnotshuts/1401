@@ -20,11 +20,37 @@ ANSI = re.compile(r'\x1b\[[0-9;]*[A-Za-z]')
 
 def supports(compatibility, major):
     """Upstream device ranges are (maximum, minimum), including Darwin patch limits."""
-    if not compatibility or len(compatibility) != 2 or not all(compatibility):
+    if not isinstance(compatibility, (tuple, list)) or len(compatibility) != 2:
         return False
-    def version(text):
-        return tuple(int(x) for x in str(text).split('.'))
-    return version(compatibility[1]) <= (int(major), 99, 99) and version(compatibility[0]) >= (int(major), 0, 0)
+    def version(value):
+        parts = str(value).split('.')
+        if not 1 <= len(parts) <= 3 or not all(x.isdigit() for x in parts):
+            raise ValueError('Invalid Darwin version')
+        return tuple(int(x) for x in parts) + (0,) * (3 - len(parts))
+    try:
+        maximum, minimum = map(version, compatibility)
+        return minimum <= maximum and minimum <= (int(major), 99, 99) and maximum >= (int(major), 0, 0)
+    except (ValueError, TypeError):
+        return False
+
+
+def compatible_versions(hardware, native_range, patched_range):
+    """Intersect mandatory device groups; optional Wi-Fi patches cannot rescue graphics."""
+    cpu = hardware.get('CPU', {}).get('Compatibility')
+    gpus = list(hardware.get('GPU', {}).values())
+    storage = [p for p in hardware.get('Storage Controllers', {}).values()
+               if p.get('Bus Type') == 'PCI' and p.get('Disk Drives')]
+    native, patched = [], []
+    for n in VERSIONS:
+        if not supports(cpu, n) or not storage or not any(supports(p.get('Compatibility'), n) for p in storage):
+            continue
+        gpu_native = any(supports(p.get('Compatibility'), n) for p in gpus)
+        gpu_patched = any(supports(p.get('OCLP Compatibility'), n) for p in gpus)
+        if gpu_native and supports(native_range, n):
+            native.append(n)
+        elif (gpu_native or gpu_patched) and supports(patched_range, n):
+            patched.append(n)
+    return native, patched
 
 
 def devices(hardware, major):
@@ -53,12 +79,13 @@ def devices(hardware, major):
 
 def analyze(report_path, major=24):
     """No ACPI compiler, downloads or EFI writes. Run in a child to isolate Scripts packages."""
-    output = {'schema': 1, 'ok': False, 'target': int(major), 'report_path': str(Path(report_path).resolve()),
+    output = {'schema': 2, 'ok': False, 'target': int(major), 'report_path': str(Path(report_path).resolve()),
               'report_sha256': '', 'hardware': {}, 'devices': [], 'native_versions': [], 'oclp_versions': [],
               'blockers': [], 'warnings': [], 'transcript': '', 'source': 'Pinned OpCore-Simplify + 1401 NVIDIA policy'}
     transcript = io.StringIO()
     try:
-        raw_bytes = Path(report_path).read_bytes()
+        with Path(report_path).open('rb') as stream:
+            raw_bytes = stream.read(16 * 1024 * 1024 + 1)
         if len(raw_bytes) > 16 * 1024 * 1024: raise ValueError('Hardware report exceeds 16 MiB.')
         output['report_sha256'] = hashlib.sha256(raw_bytes).hexdigest()
         raw = json.loads(raw_bytes)
@@ -76,6 +103,10 @@ def analyze(report_path, major=24):
             output['blockers'].extend(errors)
             output['devices'] = devices(output['hardware'], major)
             return output
+        # Imported reports may contain results from another OS or older rules.
+        for row in devices(hardware, major):
+            row['details'].pop('Compatibility', None)
+            row['details'].pop('OCLP Compatibility', None)
         checker = CompatibilityChecker()
         checker.hardware_report = hardware
         checker.min_native_macos_version = os_data.get_lowest_darwin_version()
@@ -99,19 +130,23 @@ def analyze(report_path, major=24):
                 except engine.EngineExit:
                     detail = ANSI.sub('', transcript.getvalue()[before:]).strip()
                     output['blockers'].append(f'{section}: {detail or "unsupported hardware"}')
+                except Exception as error:
+                    output['blockers'].append(f'{section}: {type(error).__name__}: {error}')
+        if not any(p.get('Bus Type') == 'PCI' and p.get('Disk Drives')
+                   for p in hardware.get('Storage Controllers', {}).values()):
+            output['blockers'].append('Не найден контроллер с подключённым диском. Повторите сканирование с правами администратора; проверьте раздел Storage Controllers / Disk Drives.')
         output['warnings'].extend(notices.notices)
         low, high = checker.min_native_macos_version, checker.max_native_macos_version
-        if low and high and not output['blockers']:
-            output['native_versions'] = [n for n in VERSIONS if supports((high, low), n)]
-        # OCLP is an alternative only within the CPU range. It never clears a fatal hardware gate.
-        if checker.ocl_patched_macos_version and not output['blockers']:
-            cpu_range = hardware['CPU'].get('Compatibility')
-            output['oclp_versions'] = [n for n in VERSIONS if supports(checker.ocl_patched_macos_version, n) and supports(cpu_range, n)]
+        if not output['blockers']:
+            output['native_versions'], output['oclp_versions'] = compatible_versions(
+                hardware, (high, low), checker.ocl_patched_macos_version)
+        choices = output['native_versions'] or output['oclp_versions']
+        output['recommended_target'] = (major if major in choices else 24 if 24 in choices else max(choices)) if choices else None
         output['hardware'] = hardware
         output['devices'] = devices(hardware, major)
         output['ok'] = not output['blockers'] and major in output['native_versions'] + output['oclp_versions']
         if not output['ok'] and not output['blockers']:
-            output['blockers'].append(f'The selected macOS ({VERSIONS.get(major, major)}) is outside the supported hardware range.')
+            output['blockers'].append(f'Выбранная macOS ({VERSIONS.get(major, major)}) не поддерживается этой конфигурацией. Выберите доступную версию выше.')
     except Exception as error:
         output['blockers'].append(f'{type(error).__name__}: {error}')
     finally:
