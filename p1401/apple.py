@@ -39,7 +39,7 @@ UA = "InternetRecovery/1.0"
 # checks each against boards.json from the pinned OpenCore release in case a board stops getting that OS.
 TARGETS = {
     25: ("macOS 26 Tahoe", "Mac-CFF7D910A743CAAF"),
-    24: ("macOS 15 Sequoia", "Mac-937A206F2EE63C01"),
+    24: ("macOS 15 Sequoia", "Mac-7BA5B2D9E42DDD94"),
     23: ("macOS 14 Sonoma", "Mac-827FAC58A8FDFA22"),
     22: ("macOS 13 Ventura", "Mac-4B682C642B45593E"),
     21: ("macOS 12 Monterey", "Mac-FFE5EF870D7BA81A"),
@@ -93,13 +93,13 @@ def _hex(n):
 
 
 def session():
-    r = _open("http://osrecovery.apple.com/", {"Host": "osrecovery.apple.com"})
-    for k, v in r.headers.items():
-        if k.lower() == "set-cookie":
-            for c in v.split("; "):
-                if c.startswith("session="):
-                    return c
-    raise AppleError(f"osrecovery gave no session cookie (headers: {dict(r.headers)})")
+    with _open("https://osrecovery.apple.com/", {"Host": "osrecovery.apple.com"}) as r:
+        for k, v in r.headers.items():
+            if k.lower() == "set-cookie":
+                for c in v.split(";"):
+                    if c.strip().startswith("session="):
+                        return c.strip()
+    raise AppleError("Apple recovery did not return a session cookie.")
 
 
 def image_info(darwin_major, sess=None):
@@ -107,11 +107,23 @@ def image_info(darwin_major, sess=None):
     if darwin_major not in TARGETS:
         raise AppleError(f"no recovery target for Darwin {darwin_major}")
     name, board = TARGETS[darwin_major]
-    post = {"cid": _hex(16), "sn": MLB_ZERO, "bid": board, "k": _hex(64), "fg": _hex(64), "os": "latest"}
-    r = _open("http://osrecovery.apple.com/InstallationPayload/RecoveryImage",
-              {"Host": "osrecovery.apple.com", "Cookie": sess or session(), "Content-Type": "text/plain"},
-              "\n".join(f"{k}={v}" for k, v in post.items()).encode())
-    info = dict(l.split(": ", 1) for l in r.read().decode().splitlines() if ": " in l)
+    for attempt in range(2):
+        post = {"cid": _hex(16), "sn": MLB_ZERO, "bid": board, "k": _hex(64), "fg": _hex(64), "os": "latest"}
+        try:
+            with _open("https://osrecovery.apple.com/InstallationPayload/RecoveryImage",
+                       {"Host": "osrecovery.apple.com", "Cookie": sess or session(), "Content-Type": "text/plain"},
+                       "\n".join(f"{k}={v}" for k, v in post.items()).encode()) as r:
+                info = dict(l.split(": ", 1) for l in r.read().decode().splitlines() if ": " in l)
+            break
+        except AppleError as error:
+            cause = error.__cause__
+            if not isinstance(cause, urllib.error.HTTPError) or cause.code not in (401, 403):
+                raise
+            if attempt:
+                raise AppleError('Apple Recovery вернул HTTP ' + str(cause.code) +
+                                 ' даже с новой сессией HTTPS. Проверьте доступ к osrecovery.apple.com: '
+                                 'прокси, фильтрацию сети или другую сеть. Диск не очищен.') from error
+            sess = None  # One fresh session, not repeated requests with the rejected cookie.
     missing = [k for k in ("AP", "AU", "AH", "AT", "CU", "CH", "CT") if k not in info]
     if missing:
         raise AppleError(f"Apple's answer for {board} lacks {missing}")
@@ -120,6 +132,9 @@ def image_info(darwin_major, sess=None):
 
 
 def _asset(url, token, extra=None):
+    # Apple's legacy oscdn host does not offer a matching TLS certificate.
+    # Preserve the URL Apple returns; its signed chunklist authenticates every
+    # byte even when that asset endpoint uses HTTP. Never disable TLS checks.
     return _open(url, {"Host": urlparse(url).hostname, "Cookie": "AssetToken=" + token, **(extra or {})})
 
 
@@ -146,7 +161,8 @@ def parse_chunklist(data):
 
 
 def fetch_chunklist(info):
-    return _asset(info["chunklist_url"], info["chunklist_token"]).read()
+    with _asset(info["chunklist_url"], info["chunklist_token"]) as response:
+        return response.read()
 
 
 def download(info, usb_root, progress=None):

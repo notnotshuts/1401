@@ -14,7 +14,7 @@ def main():
     ap = argparse.ArgumentParser(); ap.add_argument('--output', required=True); ap.add_argument('--vendor', required=True, help='directory installed from linux/requirements.txt')
     a = ap.parse_args(); output = Path(a.output).resolve(); output.mkdir(parents=True, exist_ok=True)
     revision = subprocess.check_output(['git', 'rev-parse', '--short=12', 'HEAD'], cwd=ROOT, text=True).strip()
-    version = '1.2.2+linux5.' + revision
+    version = '1.2.3+linux6.' + revision
     with tempfile.TemporaryDirectory(prefix='1401-package-') as td:
         work = Path(td); portable = work / '1401-linux-x86_64'; runtime = portable / 'runtime'; runtime.mkdir(parents=True)
         for name in ('p1401', 'upstream'):

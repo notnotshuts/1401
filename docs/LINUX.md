@@ -98,8 +98,13 @@ partitions are deliberately refused; use a different empty USB stick.
 Windows-only native diagnostics (NVML, firmware resource inventory and the
 Windows CPU helper) remain unavailable on Linux; they must not be interpreted
 as measured Linux facts. The Linux hardware scan uses the upstream sysfs/PCI
-collector. The CI loop-image test verifies storage mechanics, not physical USB
-hardware, firmware boot or installation on a real PC. Real hardware validation
+collector. The CI installer test downloads a real Apple-signed Recovery,
+writes an owned loop image using the installed backend, remounts it read-only
+and rechecks EFI files and all signed Recovery chunks. OVMF/QEMU then boots
+the USB-attached image to the OpenCore Recovery picker. The evidence archive
+contains screenshots, logs and hashes, never Apple files or disk contents.
+Only the CI copy has a persistent picker and serial debugging enabled.
+This does not verify physical USB hardware or booting the macOS kernel. Real hardware validation
 is still required before claiming end-to-end macOS support.
 
 ## Build from source
