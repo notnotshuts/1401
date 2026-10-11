@@ -564,7 +564,9 @@ class Application(ctk.CTk):
         disk = self.disks.get(self.disk.get())
         text = 'USB-накопители не обнаружены.'
         if disk:
-            text = f'Диск: {disk["Path"]}\nМодель: {disk["FriendlyName"]}\nСерийный номер: {disk["SerialNumber"] or "неизвестен"}\n'
+            text = f'Накопитель для разметки: {disk["Path"]}\nМодель: {disk["FriendlyName"]}\nСерийный номер: {disk["SerialNumber"] or "неизвестен"}\n'
+            text += 'Текущие разделы: ' + (', '.join(disk.get('Partitions', [])) or 'нет') + '\n'
+            text += 'После разметки монтируется новый раздел FAT32, например /dev/sda1.\n'
             text += 'Готов к выбору. Все данные будут удалены.' if disk['eligible'] else 'Запись запрещена: ' + '; '.join(disk['reasons'])
         self.disk_note.configure(text=text); self.update_gates()
 

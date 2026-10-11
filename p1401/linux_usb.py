@@ -45,11 +45,12 @@ def describe(node):
             'BusType': 'USB' if node.get('tran') == 'usb' else node.get('tran'),
             'IsBoot': protected, 'IsSystem': unsafe or busy,
             'IsOffline': False, 'IsReadOnly': bool(node.get('ro')),
-            'DeviceId': node.get('maj:min'), 'Nodes': nodes, 'Mounts': mounts}
+            'DeviceId': node.get('maj:min'), 'Nodes': nodes, 'Mounts': mounts,
+            'Partitions': [n['path'] for n in nodes if n.get('type') == 'part']}
 
 
 def list_disks():
-    data = json.loads(run('lsblk', '--json', '--bytes', '--paths', '--output',
+    data = json.loads(run('lsblk', '--json', '--tree', '--bytes', '--paths', '--output',
                           'PATH,TYPE,SIZE,MODEL,SERIAL,TRAN,RO,FSTYPE,PARTTYPE,MOUNTPOINTS,MAJ:MIN'))
     return [describe(n) for n in data['blockdevices'] if n.get('type') == 'disk']
 
@@ -77,6 +78,47 @@ def check_disk(selected, allow_large=False):
     return current
 
 
+def partition_node(path, size):
+    """Find partition 1 from the kernel tree, never by appending a guessed suffix."""
+    data = json.loads(run('lsblk', '--json', '--tree', '--bytes', '--paths', '--output',
+                          'PATH,TYPE,SIZE,PKNAME,MAJ:MIN', path))
+    disks = data.get('blockdevices', [])
+    if len(disks) != 1 or disks[0].get('path') != path:
+        raise UsbError('USB kernel tree changed after partitioning.')
+    children = disks[0].get('children', [])
+    if len(children) != 1 or children[0].get('type') != 'part':
+        raise UsbError('Expected exactly one new USB partition; kernel partition table is not ready.')
+    node = children[0]; partition = node.get('path', '')
+    if (not partition.startswith('/dev/') or partition == path or os.path.realpath(partition) != partition
+            or os.path.basename(node.get('pkname') or '') != os.path.basename(path)
+            or int(node.get('size') or 0) != size):
+        raise UsbError('USB partition does not match the new disk layout.')
+    device_id = node.get('maj:min')
+    if not device_id or Path('/sys/dev/block', device_id, 'partition').read_text().strip() != '1':
+        raise UsbError('The USB target is not partition 1.')
+    st = os.stat(partition)
+    if not stat.S_ISBLK(st.st_mode) or f'{os.major(st.st_rdev)}:{os.minor(st.st_rdev)}' != device_id:
+        raise UsbError('USB partition device identity changed.')
+    return partition
+
+
+def mount_partition(partition, root):
+    """Mount a partition and verify the mounted source before copying any files."""
+    run('mount', '-t', 'vfat', '-o', 'nodev,nosuid,noexec', partition, root)
+    try:
+        mounts = json.loads(run('findmnt', '--json', '--mountpoint', root, '--output',
+                                'SOURCE,MAJ:MIN,FSTYPE,TARGET')).get('filesystems', [])
+        st = os.stat(partition)
+        if (len(mounts) != 1 or mounts[0].get('fstype') != 'vfat'
+                or os.path.realpath(mounts[0].get('source', '')) != partition
+                or mounts[0].get('maj:min') != f'{os.major(st.st_rdev)}:{os.minor(st.st_rdev)}'
+                or os.path.realpath(mounts[0].get('target', '')) != os.path.realpath(root)):
+            raise UsbError('Mounted USB source does not match the selected partition; copying refused.')
+    except Exception:
+        run('umount', '--', root)
+        raise
+
+
 def format_disk(path, size, recheck=None):
     """Internal formatter. Caller must hold and revalidate the selected USB disk."""
     sectors = min(size - 64 * (1 << 20), PART_CAP) // 512
@@ -95,13 +137,16 @@ def format_disk(path, size, recheck=None):
         os.close(fd)
     run('blockdev', '--rereadpt', path)
     run('udevadm', 'settle')
-    partition = path + ('p1' if path[-1].isdigit() else '1')
+    partition = None
     for _ in range(40):
-        if os.path.exists(partition):
+        try:
+            partition = partition_node(path, sectors * 512)
             break
+        except (UsbError, OSError, ValueError):
+            pass
         time.sleep(.25)
-    if not os.path.exists(partition):
-        raise UsbError('The new USB partition did not appear.')
+    if partition is None:
+        raise UsbError('The new USB partition did not appear with the expected kernel identity and size.')
     if recheck:
         state = recheck()
         if state['Mounts']:
@@ -115,7 +160,7 @@ def write(disk, efi_build_dir, recovery_info, allow_large=False, progress=None, 
     from . import apple, validate, machine_handoff, nullmoth
     if os.geteuid() != 0:
         raise UsbError('USB writing requires root. Run sudo 1401 write ...')
-    for tool in ('lsblk', 'sfdisk', 'mkfs.fat', 'mount', 'umount', 'udevadm', 'blockdev'):
+    for tool in ('lsblk', 'sfdisk', 'mkfs.fat', 'mount', 'findmnt', 'umount', 'udevadm', 'blockdev'):
         if not shutil.which(tool):
             raise UsbError(f'Missing system tool: {tool}')
     checked = validate.validate(efi_build_dir)
@@ -138,8 +183,10 @@ def write(disk, efi_build_dir, recovery_info, allow_large=False, progress=None, 
         current = check_disk(disk, allow_large)
         partition = format_disk(disk['Path'], current['Size'],
                                 recheck=lambda: check_disk(disk, allow_large))
+        print(f'USB disk: {disk["Path"]}; mounting FAT32 partition: {partition}', flush=True)
         with tempfile.TemporaryDirectory(prefix='1401-usb-') as root:
-            run('mount', '-t', 'vfat', '-o', 'nodev,nosuid,noexec', partition, root)
+            check_disk(disk, allow_large)
+            mount_partition(partition, root)
             try:
                 shutil.copytree(os.path.join(staging, 'com.apple.recovery.boot'), os.path.join(root, 'com.apple.recovery.boot'))
                 shutil.copytree(os.path.join(efi_build_dir, 'EFI'), os.path.join(root, 'EFI'))

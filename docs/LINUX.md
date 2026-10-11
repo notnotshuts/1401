@@ -81,6 +81,8 @@ added by this port.
 
 ## USB safeguards and limits
 
+`/dev/sda` — весь накопитель; `/dev/sda1` — раздел на нём. Для создания установочного USB выберите и подтвердите весь накопитель: разметка удаляет все его разделы. Монтируется только новый раздел FAT32. Его путь программа получает из дерева устройств Linux, проверяет номер, размер и принадлежность накопителю; после монтирования сверяет источник через `findmnt`. Интерфейс показывает существующие разделы, а журнал — фактически смонтированный раздел.
+
 **Writing erases the selected USB disk.** The command requires root and a second
 copy of its exact device path. It refuses internal, read-only, system-mounted,
 OS-containing, holder-backed and unidentified disks, and rechecks serial, model,
