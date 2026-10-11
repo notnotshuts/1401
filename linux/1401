@@ -15,4 +15,4 @@ if [ ! -f "$cache/.ready" ]; then
 fi
 export PYTHONPATH="$cache"
 export PYTHONNOUSERSITE=1
-exec /usr/bin/python3 -m p1401.linux "$@"
+exec /usr/bin/python3 "$cache/entry.py" "$@"

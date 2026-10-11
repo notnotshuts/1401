@@ -28,11 +28,13 @@ jobs:
       - name: Verify installed package and portable launcher
         run: |
           sudo apt-get install -y ./dist/linux/*.deb
+          cd "$RUNNER_TEMP"
           1401 --help
           1401 disks
           mkdir -p "$RUNNER_TEMP/portable"
-          tar -xzf dist/linux/*.tar.gz -C "$RUNNER_TEMP/portable"
+          tar -xzf "$GITHUB_WORKSPACE"/dist/linux/*.tar.gz -C "$RUNNER_TEMP/portable"
           "$RUNNER_TEMP/portable/1401-linux-x86_64/1401" --help
+          cd "$GITHUB_WORKSPACE"
           xvfb-run -a python3 -c 'from p1401.linux import gui; import tkinter; original = tkinter.Tk; tkinter.Tk = lambda: schedule(original()); schedule = lambda root: (root.after(800, root.destroy), root)[1]; gui()'
       - name: Build and validate a real corpus EFI with the installed Linux launcher
         env:

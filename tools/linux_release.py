@@ -22,6 +22,7 @@ def main():
         for name in ('LICENSE', 'NOTICE.md'):
             shutil.copy2(ROOT / name, runtime / name)
         (runtime / 'LINUX_VERSION').write_text(version + '\n')
+        (runtime / 'entry.py').write_text('from p1401.linux import main\nraise SystemExit(main())\n')
         shutil.copy2(ROOT / 'linux/1401', portable / '1401')
         shutil.copy2(ROOT / 'docs/LINUX.md', portable / 'README.md')
         subprocess.run(['/usr/bin/python3', '-m', 'compileall', '-q', str(runtime)], check=True)
