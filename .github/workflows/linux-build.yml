@@ -129,7 +129,9 @@ jobs:
   installer:
     name: Live Apple USB and UEFI boot evidence
     needs: [linux, mint-base]
-    runs-on: ubuntu-22.04
+    # HfsPlus enables AVX at entry. QEMU 6.2 TCG on 22.04 cannot emulate it;
+    # 24.04 supplies QEMU 8.2 with AVX, keeping the actual EFI driver intact.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
       contents: read

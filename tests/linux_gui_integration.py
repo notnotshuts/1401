@@ -29,11 +29,16 @@ with tempfile.TemporaryDirectory() as td:
     def wait(timeout=240, progress_capture=False):
         deadline = time.monotonic() + timeout
         captured = False
+        next_status = time.monotonic() + 30
         while app.busy and time.monotonic() < deadline:
             app.update(); time.sleep(.02)
+            if time.monotonic() >= next_status:
+                detail = app.operation_output[-1].strip() if app.operation_output else 'waiting for child'
+                print(f'GUI operation {app.operation}: {detail}', flush=True)
+                next_status = time.monotonic() + 30
             if progress_capture and not captured and 'Download ' in app.log.get('1.0', 'end'):
                 capture('07-usb-progress.png'); captured = True
-        assert not app.busy, 'GUI child operation timed out'
+        assert not app.busy, 'GUI child operation timed out: ' + app.log.get('1.0', 'end')[-4000:]
         # Flush completion callbacks before observing the state.
         app.update()
     app.check(); wait()

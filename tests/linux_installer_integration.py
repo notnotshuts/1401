@@ -36,6 +36,9 @@ def owned(state):
 
 def setup(path):
     assert not path.exists()
+    version = usb.run('qemu-system-x86_64', '--version').splitlines()[0]
+    match = re.search(r'version (\d+)\.(\d+)', version)
+    assert match and tuple(map(int, match.groups())) >= (7, 2), 'QEMU >= 7.2 required for HfsPlus AVX initialization'
     image = path.with_suffix('.img')
     with image.open('xb') as stream: stream.truncate(8 << 30)
     loop = usb.run('losetup', '--find', '--show', '--partscan', str(image)).strip()
@@ -45,7 +48,7 @@ def setup(path):
             'DeviceId': f'{os.major(node.st_rdev)}:{os.minor(node.st_rdev)}',
             'BusType': 'loop', 'IsBoot': False, 'IsSystem': False, 'IsOffline': False,
             'IsReadOnly': False, 'Mounts': [], 'Nodes': [], 'eligible': True, 'reasons': []}
-    path.write_text(json.dumps({'image': str(image), 'disk': disk}))
+    path.write_text(json.dumps({'image': str(image), 'disk': disk, 'qemu_version': version}))
     print('Allocated disposable loop image:', loop, flush=True)
 
 
@@ -107,7 +110,8 @@ def boot(image, output):
 def write(state, build, report, output):
     output.mkdir(parents=True, exist_ok=True)
     result = {'schema': 1, 'ok': False, 'source': 'pinned corpus; not the user laptop',
-              'recovery_source': 'Apple directly; no recovery image retained as an artifact'}
+              'recovery_source': 'Apple directly; no recovery image retained as an artifact',
+              'qemu_version': state['qemu_version']}
     try:
         owned(state)
         # Negative control: production USB selection must refuse this loop.
@@ -137,6 +141,7 @@ def write(state, build, report, output):
                 assert selected['Path'] == state['disk']['Path']; return owned(state)
             with linux_provenance.for_profile(profile), patch.object(usb, 'check_disk', side_effect=checked):
                 got = usb.write(state['disk'], str(copied), info, progress=progress, machine_profile=profile)
+            print('USB write completed. Independently checking remounted EFI and all signed recovery chunks.', flush=True)
             result['writer'] = got
             with tempfile.TemporaryDirectory(prefix='1401-readback-') as mount:
                 usb.run('mount', '-t', 'vfat', '-o', 'ro,nodev,nosuid,noexec', got['partition'], mount)
@@ -160,6 +165,7 @@ def write(state, build, report, output):
             partition = result['partition_table']['partitions'][0]
             assert partition['type'].lower() == 'ef' and partition['bootable']
             usb.run('losetup', '--detach', state['disk']['Path'])
+            print('Readback passed. Booting the image with OVMF and AVX-capable QEMU TCG.', flush=True)
             result['boot'] = boot(state['image'], output)
         result['ok'] = True
     except Exception as error:
