@@ -106,11 +106,8 @@ def format_disk(path, size, recheck=None):
         state = recheck()
         if state['Mounts']:
             raise UsbError('The new partition was mounted by another process; formatting stopped.')
-    fd = os.open(partition, os.O_RDONLY | os.O_EXCL | os.O_NOFOLLOW)
-    try:
-        run('mkfs.fat', '-F', '32', '-n', '1401', partition)
-    finally:
-        os.close(fd)
+    # mkfs.fat opens its target with O_EXCL itself; a second claim would block it.
+    run('mkfs.fat', '-F', '32', '-n', '1401', partition)
     return partition
 
 
