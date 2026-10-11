@@ -21,7 +21,6 @@ jobs:
       - name: Test disk safety and shared engine regressions
         run: |
           python3 -m unittest discover -s tests -v
-          python3 -m p1401.guide --selftest
       - name: Exercise USB layout on a disposable loop image
         run: sudo env PYTHONPATH="$GITHUB_WORKSPACE" python3 tests/linux_loop_smoke.py
       - name: Build Linux packages
@@ -35,6 +34,18 @@ jobs:
           tar -xzf dist/linux/*.tar.gz -C "$RUNNER_TEMP/portable"
           "$RUNNER_TEMP/portable/1401-linux-x86_64/1401" --help
           xvfb-run -a python3 -c 'from p1401.linux import gui; import tkinter; original = tkinter.Tk; tkinter.Tk = lambda: schedule(original()); schedule = lambda root: (root.after(800, root.destroy), root)[1]; gui()'
+      - name: Build and validate a real corpus EFI with the installed Linux launcher
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 - <<'PYCODE'
+          import json
+          from tests.corpus.fetch import fetch_entry
+          entries = json.load(open('tests/corpus/manifest.json'))['entries']
+          print(fetch_entry(next(e for e in entries if e['slug'] == 'x570-5800x-6600xt')))
+          PYCODE
+          1401 build "$GITHUB_WORKSPACE/tests/corpus/cache/x570-5800x-6600xt/Report.json" "$GITHUB_WORKSPACE/tests/corpus/cache/x570-5800x-6600xt/ACPI" "$RUNNER_TEMP/corpus-efi" --macos 24
+          1401 guide "$GITHUB_WORKSPACE/tests/corpus/cache/x570-5800x-6600xt/Report.json" "$RUNNER_TEMP/corpus-efi" "$RUNNER_TEMP/BIOS.txt"
       - name: Upload Linux packages and checksums
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
