@@ -70,6 +70,15 @@ jobs:
           path: dist/linux/ui/*.png
           if-no-files-found: warn
           retention-days: 30
+      - name: Prepare complete release assets
+        run: python3 tools/linux_release_assets.py --input dist/linux --output dist/release
+      - name: Retain complete release assets
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: 1401-linux-release
+          path: dist/release/*
+          if-no-files-found: error
+          retention-days: 30
       - name: Upload Linux packages and checksums
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
@@ -77,3 +86,60 @@ jobs:
           path: dist/linux/*
           if-no-files-found: error
           retention-days: 30
+
+  release:
+    name: Publish Linux release
+    needs: linux
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    concurrency:
+      group: linux-release-${{ github.repository }}
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      actions: read
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+      RELEASE_SHA: ${{ github.sha }}
+      RELEASE_RUN: ${{ github.run_id }}
+    steps:
+      - name: Download the verified assets from this exact workflow run
+        run: gh run download "$RELEASE_RUN" --name 1401-linux-release --dir release
+      - name: Verify every release asset
+        working-directory: release
+        run: sha256sum -c SHA256SUMS
+      - name: Publish the complete release
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="linux-${RELEASE_SHA:0:12}"
+          current=$(gh api "repos/$GH_REPO/git/ref/heads/main" --jq '.object.sha')
+          latest=false
+          if [[ "$current" == "$RELEASE_SHA" ]]; then latest=true; fi
+          cat > "$RUNNER_TEMP/release-notes.md" <<EOF
+          Linux x86_64: интерфейс CustomTkinter, проверка железа OpCore-Simplify, сборка EFI и запись USB.
+
+          Вложения: пакет Ubuntu/Debian (.deb), переносимый архив (.tar.gz), SHA256SUMS для всех файлов, скриншоты, README, инструкция и лицензии.
+
+          Установка: скачайте .deb и выполните \`sudo apt install ./p1401-linux_*_amd64.deb\`, затем \`1401 gui\`.
+
+          Перед публикацией прошли тесты, проверка GUI под Xvfb, форматирование loop-образа, сборка EFI по реальному отчёту и проверка EFI под root. Физический USB и загрузка macOS требуют проверки на вашем ПК.
+
+          Исходный коммит: $RELEASE_SHA
+          Проверки Actions: https://github.com/$GH_REPO/actions/runs/$RELEASE_RUN
+          EOF
+          if gh release view "$tag" > "$RUNNER_TEMP/existing-release.json" 2>/dev/null; then
+            # A rerun never duplicates or replaces an already published release.
+            draft=$(gh release view "$tag" --json isDraft --jq '.isDraft')
+            if [[ "$draft" == "false" ]]; then
+              echo "Release $tag is already published."
+              exit 0
+            fi
+          else
+            gh release create "$tag" --target "$RELEASE_SHA" --draft --title "1401 Linux · ${RELEASE_SHA:0:12}" --notes-file "$RUNNER_TEMP/release-notes.md"
+          fi
+          gh release upload "$tag" release/* --clobber
+          gh release edit "$tag" --draft=false --latest="$latest" --notes-file "$RUNNER_TEMP/release-notes.md"
+          gh release view "$tag" --json url --jq '.url'

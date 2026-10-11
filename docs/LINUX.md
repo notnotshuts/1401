@@ -7,8 +7,11 @@ package uses the system Python interpreter; it is not a port of the WinForms UI.
 
 ## Install
 
-Download the `1401-linux-x86_64` artifact from the fork's successful **Linux build
-and verification** Actions run. Unzip it and verify `sha256sum -c SHA256SUMS`.
+Download files from the fork's [latest Linux release](https://github.com/notnotshuts/1401/releases/latest).
+Assets include the .deb, portable archive, screenshots, instructions, licences
+and SHA256SUMS. Download all assets to verify the complete manifest with
+`sha256sum -c SHA256SUMS`. Successful pushes to main (or manual workflow runs
+on main) publish releases automatically after all checks pass.
 On Ubuntu 22.04+ or Debian 12+:
 
 ```sh
