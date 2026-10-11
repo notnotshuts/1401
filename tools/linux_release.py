@@ -53,7 +53,7 @@ Description: Linux interface for the 1401 OpenCore installer builder
         shutil.copy2(ROOT / 'docs/LINUX.md', doc / 'README.md')
         subprocess.run(['dpkg-deb', '--root-owner-group', '--build', str(deb), str(output / f'p1401-linux_{version}_amd64.deb')], check=True)
     files = sorted(output.glob('*'))
-    (output / 'SHA256SUMS').write_text(''.join(f'{hashlib.sha256(p.read_bytes()).hexdigest()}  {p.name}\n' for p in files if p.name != 'SHA256SUMS'))
+    (output / 'SHA256SUMS').write_text(''.join(f'{hashlib.sha256(p.read_bytes()).hexdigest()}  {p.name}\n' for p in files if p.is_file() and p.name != 'SHA256SUMS'))
 
 
 if __name__ == '__main__': main()

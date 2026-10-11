@@ -39,7 +39,7 @@ jobs:
           tar -xzf "$GITHUB_WORKSPACE"/dist/linux/*.tar.gz -C "$RUNNER_TEMP/portable"
           "$RUNNER_TEMP/portable/1401-linux-x86_64/1401" --help
           cd "$GITHUB_WORKSPACE"
-          xvfb-run -a python3 tests/linux_gui_smoke.py --output dist/linux/ui
+          xvfb-run -a env PYTHONPATH=/usr/lib/1401:/usr/lib/1401/vendor python3 tests/linux_gui_smoke.py --output dist/linux/ui
       - name: Build and validate a real corpus EFI with the installed Linux launcher
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -51,7 +51,7 @@ jobs:
           print(fetch_entry(next(e for e in entries if e['slug'] == 'x570-5800x-6600xt')))
           PYCODE
           1401 check "$GITHUB_WORKSPACE/tests/corpus/cache/x570-5800x-6600xt/Report.json" --macos 24 --output "$RUNNER_TEMP/compatibility.json"
-          xvfb-run -a python3 tests/linux_gui_smoke.py --report "$GITHUB_WORKSPACE/tests/corpus/cache/x570-5800x-6600xt/Report.json" --analysis "$RUNNER_TEMP/compatibility.json" --output dist/linux/ui
+          xvfb-run -a env PYTHONPATH=/usr/lib/1401:/usr/lib/1401/vendor python3 tests/linux_gui_smoke.py --report "$GITHUB_WORKSPACE/tests/corpus/cache/x570-5800x-6600xt/Report.json" --analysis "$RUNNER_TEMP/compatibility.json" --output dist/linux/ui
           1401 build "$GITHUB_WORKSPACE/tests/corpus/cache/x570-5800x-6600xt/Report.json" "$GITHUB_WORKSPACE/tests/corpus/cache/x570-5800x-6600xt/ACPI" "$RUNNER_TEMP/corpus-efi" --macos 24
           1401 guide "$GITHUB_WORKSPACE/tests/corpus/cache/x570-5800x-6600xt/Report.json" "$RUNNER_TEMP/corpus-efi" "$RUNNER_TEMP/BIOS.txt"
           sudo env PYTHONPATH=/usr/lib/1401:/usr/lib/1401/vendor python3 - "$RUNNER_TEMP/corpus-efi" <<'PYCODE'
@@ -62,6 +62,14 @@ jobs:
               assert result['ok'], result
           print('Root revalidation of ordinary-user build passed.')
           PYCODE
+      - name: Retain GUI verification screenshots
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: linux-ui-preview
+          path: dist/linux/ui/*.png
+          if-no-files-found: warn
+          retention-days: 30
       - name: Upload Linux packages and checksums
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:

@@ -78,7 +78,7 @@ class Application(ctk.CTk):
         self.after(80, self.poll)
         self.report_path.trace_add('write', self.invalidate)
         self.acpi_path.trace_add('write', self.invalidate)
-        self.after(150, self.restore)
+        self.restore()
 
     @property
     def work(self): return Path(self.workspace.get()).expanduser().resolve()
@@ -350,7 +350,7 @@ class Application(ctk.CTk):
             self.label(card, device['name'], 15, anchor='w', wraplength=560, justify='left').grid(row=1, column=0, sticky='ew', padx=16, pady=(4, 8))
             self.label(card, title, 12, color).grid(row=1, column=1, padx=16)
             props = device['details']
-            details = ' • '.join(f'{k}: {v}' for k, v in props.items() if k in ('Device ID', 'Codename', 'Core Count', 'Chipset', 'Firmware Type', 'SIMD Features', 'Bus Type', 'Connector Type'))
+            details = ' • '.join(f'{k}: {v}' for k, v in props.items() if k in ('Device ID', 'Codename', 'Core Count', 'Chipset', 'Firmware Type', 'SIMD Features', 'Bus Type', 'Connector Type', 'Resolution', 'Secure Boot', 'Platform', 'CPU Count'))
             def range_text(value):
                 if not value or not all(value): return 'нет'
                 return f'Darwin {value[1]} — {value[0]}'
