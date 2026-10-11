@@ -33,8 +33,8 @@ with tempfile.TemporaryDirectory() as td:
     app.report_path.set(str(Path(td) / 'missing.json'))
     # Failed checks must never reload a previous compatibility snapshot.
     with patch.object(app, 'start') as start:
-        app.check(); first_output = start.call_args.args[0][-1]
-        app.check(); second_output = start.call_args.args[0][-1]
+        app.check(); args = start.call_args.args[0]; first_output = args[args.index('--output') + 1]
+        app.check(); args = start.call_args.args[0]; second_output = args[args.index('--output') + 1]
         assert first_output != second_output
     app.wizard = True
     with patch.object(app, 'start') as start:
