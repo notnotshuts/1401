@@ -1,6 +1,6 @@
 # 1401 on Linux (x86_64)
 
-This fork adds a Python/Tk desktop interface, CLI, and Linux USB backend. It uses
+This fork adds a CustomTkinter desktop interface, CLI, and Linux USB backend. It uses
 the same pinned Hardware Sniffer, OpCore-Simplify engine, policy rules, Apple
 recovery verification and OpenCore validator as the Windows utility. The Linux
 package uses the system Python interpreter; it is not a port of the WinForms UI.
@@ -18,10 +18,26 @@ sudo apt install ./p1401-linux_*_amd64.deb
 
 For other x86_64 distributions, install Python 3.10+, Tkinter, certifi, pciutils,
 usbutils, util-linux (including lsblk, mount, umount and sfdisk), dosfstools, udev
-sudo and acpica-tools (`iasl`). Extract the `.tar.gz`, then run `./1401-linux-x86_64/1401`.
+sudo, PolicyKit and acpica-tools (`iasl`). CustomTkinter and its dependencies are bundled. Extract the `.tar.gz`, then run `./1401-linux-x86_64/1401`.
 The launcher copies its engine into a versioned private cache, so packages under
 `/usr/lib` stay writable only to the package manager and downloads work as a
 normal user. Native builds and package smoke tests run on Ubuntu 22.04 x86_64.
+
+## Hardware check and desktop interface
+
+The CustomTkinter desktop provides overview, hardware compatibility, EFI build,
+BIOS guide, USB selection and operation log pages. Import a Hardware Sniffer
+report or scan the local PC; choose macOS by name and inspect per-device support.
+The read-only `check` command uses the pinned OpCore-Simplify compatibility checker
+with 1401's NVIDIA policy, without compiling ACPI or downloading components.
+Known device ranges, OCLP requirements, blockers and unchecked devices are shown
+separately. The engine's actual EFI build remains authoritative.
+
+The installed desktop invokes `/usr/bin/1401` through `pkexec` for scan and USB
+write. PolicyKit asks for administrative authentication. If unavailable, the app
+copies a shell-quoted sudo command for a terminal. A compatibility check alone
+needs no administrative access. Reports, target version and DSDT are checked
+before enabling build; changed inputs invalidate the previous assessment.
 
 ## Command line
 
@@ -30,6 +46,7 @@ same inputs. Replace `/path/to/work` and `/dev/sdX` with your own paths.
 
 ```sh
 sudo 1401 scan /path/to/work/scan
+1401 check /path/to/work/scan/Report.json --macos 24 --output /path/to/work/compatibility.json
 1401 plan /path/to/work/scan/Report.json /path/to/work/scan/ACPI --macos 24
 1401 build /path/to/work/scan/Report.json /path/to/work/scan/ACPI /path/to/work/build --macos 24
 1401 guide /path/to/work/scan/Report.json /path/to/work/build /path/to/work/BIOS.txt
@@ -72,7 +89,8 @@ is still required before claiming end-to-end macOS support.
 
 ```sh
 python3 -m unittest discover -s tests -v
-python3 tools/linux_release.py --output dist/linux
+python3 -m pip install --require-hashes --no-deps --target build/linux-vendor -r linux/requirements.txt
+python3 tools/linux_release.py --output dist/linux --vendor build/linux-vendor
 ```
 
 The workflow builds a `.deb`, a portable Python application archive and

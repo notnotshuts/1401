@@ -13,6 +13,6 @@ if [ ! -f "$cache/.ready" ]; then
     touch "$temp/.ready"
     if [ ! -d "$cache" ]; then mv "$temp" "$cache"; fi
 fi
-export PYTHONPATH="$cache"
+export PYTHONPATH="$cache:$cache/vendor"
 export PYTHONNOUSERSITE=1
 exec /usr/bin/python3 "$cache/entry.py" "$@"

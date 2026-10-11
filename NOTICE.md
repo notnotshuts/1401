@@ -59,3 +59,18 @@ The license covers 1401's software and nothing else. The names **NullMoth** and 
 1401 contains no Apple software and serves none. macOS downloads from Apple's servers directly onto the user's own
 machine. 1401 ships no decryption keys and circumvents no Apple access control. The macOS license terms are
 between the user and Apple, and 1401's README says so plainly.
+
+## Linux desktop dependencies
+
+The Linux package bundles the following pinned Python wheels, including their
+`.dist-info` licence files and CustomTkinter's required themes/fonts:
+
+| Component | Version | Licence | Source |
+|---|---|---|---|
+| CustomTkinter | 5.2.2 | MIT | https://github.com/TomSchimansky/CustomTkinter |
+| darkdetect | 0.8.0 | BSD-3-Clause | https://github.com/albertosottile/darkdetect |
+| packaging | 24.2 | Apache-2.0 OR BSD-2-Clause | https://github.com/pypa/packaging |
+
+Wheel hashes are fixed in `linux/requirements.txt`. No runtime pip installation
+is required by the packaged desktop. The Linux application uses its own text
+branding and does not display the upstream moth logo.

@@ -34,6 +34,7 @@ def main(argv=None):
         p.add_argument("--macos", default="")
         p.add_argument("--echo", action="store_true", help="show the engine's own output live")
         p.add_argument("--json", action="store_true")
+        p.add_argument("--result", help="save the structured result to a JSON file")
         p.add_argument("--boot-log", action="append", default=[], help="a failed boot's opencore-*.txt or panic-*.txt from the stick")
         p.add_argument("--stopped-at", default="", help="the line the screen stopped on")
     a = ap.parse_args(argv)
@@ -43,6 +44,9 @@ def main(argv=None):
         import tempfile  # noqa: PLC0415
         out = tempfile.mkdtemp(prefix="1401-plan-")
     r = engine.build(a.report, a.acpi, out, pol, echo=a.echo, download=(a.cmd == "build"))
+    if a.result:
+        from .linux_hardware import save
+        save(_result_json(r), a.result)
     if a.json:
         print(json.dumps(_result_json(r), indent=2, default=str))
     else:

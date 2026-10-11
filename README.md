@@ -1,76 +1,94 @@
-# 1401
+# 1401 Linux
 
-**macOS on the PC you already own: the reverse of Boot Camp.** Free of charge, never for sale. Hardware reports stay local until a log submission is explicitly approved.
+Приложение для проверки совместимости ПК с macOS, сборки OpenCore EFI и создания установочного USB из Linux. Интерфейс на **CustomTkinter**, аппаратные проверки — из закреплённой версии **OpCore-Simplify**.
 
-Made by **NullMoth Systems**. Support the work: https://buymeacoffee.com/nullmoth
+[![Linux build](https://github.com/notnotshuts/1401/actions/workflows/linux-build.yml/badge.svg)](https://github.com/notnotshuts/1401/actions/workflows/linux-build.yml)
 
-| Download (Releases) | What it is |
-|---|---|
-| `1401-Windows-1.0.24.zip` | the Windows app: checks your PC, builds its OpenCore setup, writes a macOS install stick |
-| `1401-Mac-1.0.18.dmg` (in the [driver repo](https://github.com/nullmoth/nvidia-macos-driver) releases) | the Mac installer for the NVIDIA driver: open it and run **1401**; the helper package is a separate verified download or the copy staged on the USB stick |
+Это независимый Linux-форк [nullmoth/1401](https://github.com/nullmoth/1401). Целевая платформа — **x86_64 Linux**; пакеты и интеграционные проверки собираются на Ubuntu 22.04. Исходный Windows-интерфейс сохранён в `windows/`.
 
-> **1401 is new and may not work on every PC.** It has been tested end to end on one PC (Intel Core Ultra 5 225F,
-> B860 board, GeForce RTX 5060). If it does not work on yours, set up OpenCore by hand with the
-> [OpenCore Install Guide](https://dortania.github.io/OpenCore-Install-Guide/)
-> ([OpenCore releases](https://github.com/acidanthera/OpenCorePkg/releases)). The Mac installer targets macOS 15 on OpenCore; individual GPU, display and application support requires validation.
+## Возможности
 
-How the code works, step by step: [`docs/HOW-IT-WORKS.md`](docs/HOW-IT-WORKS.md).
+- **Проверка железа:** CPU, GPU, сеть, звук, контроллеры дисков, Bluetooth, картридеры и биометрия. Показ идентификаторов, диапазонов macOS, статусов поддержки и требований OCLP / NVIDIA-драйвера.
+- **Сканирование ПК:** Hardware Sniffer собирает `Report.json` и ACPI. Можно импортировать существующий отчёт и указать отдельную папку ACPI.
+- **Сборка EFI:** общий движок 1401 применяет свои политики поверх OpCore-Simplify. Интерфейс показывает SMBIOS, kexts, отключённые устройства и результат `ocvalidate`.
+- **Руководство BIOS:** шаги для собранной конфигурации отображаются в приложении и сохраняются в файл.
+- **Установочный USB:** выбор диска с моделью, размером и серийным номером; запрет записи на системные диски; подтверждение точным путём `/dev/...`; проверка файлов после записи.
+- **Журнал и рабочие пространства:** операции выполняются в фоновых процессах, результаты сохраняются локально; журнал можно экспортировать.
 
-Maintenance changes: [`Windows 1.0.24 companion refresh`](docs/RELEASE-1.0.24.md).
+## Установка
 
-## Linux fork
+Откройте [последнюю успешную сборку Actions](https://github.com/notnotshuts/1401/actions/workflows/linux-build.yml) и скачайте артефакт **1401-linux-x86_64**. Внутри — `.deb`, переносимый `.tar.gz`, контрольные суммы и скриншоты интерфейса из CI.
 
-This fork adds an x86_64 Linux desktop interface and CLI. See [Linux installation and usage](docs/LINUX.md). The **Linux build and verification** GitHub Actions workflow produces `.deb` and portable `.tar.gz` packages.
-
-## Using it
-
-1. Unzip `1401-Windows-1.0.24.zip` and keep the `1401` folder together. Run `1401.exe` (it asks for administrator
-   rights: it reads the hardware and writes the stick).
-2. **Check this PC**, **Build the Mac setup**, read **Your BIOS steps**, then **Create the macOS stick** on a USB stick of
-   4 GB or more that can be erased. You need internet.
-3. Restart, change the BIOS settings 1401 showed you, boot the stick, and pick the macOS installer in the OpenCore menu.
-   In the installer, choose only the intended macOS partition or volume. Do not erase a whole disk containing Windows or other data. Prepare verified backups and recovery media before changing partitions. Format only the intended macOS destination as APFS with Disk Utility, then choose Reinstall macOS. The installer
-   downloads the rest of macOS from Apple.
-4. With a supported Turing-or-later NVIDIA card: when macOS is running, open the `NullMoth` folder on the stick, unzip `1401-Mac-1.0.18.zip`
-   and run **1401.app** (or download `1401-Mac-1.0.18.dmg`). It installs the NVIDIA driver and updates the driver-related OpenCore settings. Keep the 1401 stick plugged in while it runs and every time you start
-   the Mac: OpenCore on that stick is what starts macOS, and it is the config 1401.app changes.
-The Mac companion does not copy OpenCore onto an internal EFI. Keep its startup stick attached for every restart until that boot setup is separately reviewed.
-
-5. Something went wrong? If the build fails, 1401 shows why and sends the log to nullmothsystems.com after telling you
-   (Cancel keeps it on your PC). If macOS does not start from the stick, boot back into Windows, plug the stick in and open
-   1401, or click **Scan for logs and send them**: the stick holds OpenCore's and macOS's startup logs and 1401 sends them.
-   Quote the report ID it shows when you ask for help.
-
-## What 1401 changes compared with the engine it builds on
-
-1401 builds with [OpCore-Simplify](https://github.com/lzhoang2801/OpCore-Simplify) and then applies its own rules.
-Every rule that fires is recorded in the build result.
-
-| Rule | What it does |
-|---|---|
-| `sip-minimal` | SIP stays on unless a chosen feature needs it lowered, and then only as far as that feature needs |
-| `tahoe-weg-amd`, `tahoe-weg-args` | macOS 26 with an AMD card: WhateverGreen removed (it panics on 26), its boot arguments stripped |
-| `tahoe-intel-bt` | macOS 26 with Intel Bluetooth: `-ibtcompatbeta` |
-| `arrow-lake-ctr`, `arrow-lake-ctrsmt` | Core Ultra 200 (Arrow Lake): CpuTopologyRebuild and `ctrsmt` off, matching a config that installs and runs macOS 15 on that CPU |
-| `boot-logs-on-stick` | OpenCore writes its log, Apple's boot log and any macOS panic to the stick, so a PC that never reaches macOS can still report why |
-| `keep-boot-args` | the stick never overwrites the boot arguments of a machine that already runs macOS |
-| `nullmoth-boot-args`, `nullmoth-sip` | NVIDIA card in the driver's table: macOS 15, the driver's boot arguments, SIP `0x0A43` |
-| `nullmoth-installer-bar` | NVIDIA card: small BAR for the installer (`ResizeAppleGpuBars 0`, `ResizeGpuBars -1`) so its screen survives PCI setup; the Mac app restores the full BAR after install |
-
-## Tests
+Для Ubuntu 22.04+ / Debian 12+:
 
 ```bash
-python3 tests/corpus/fetch.py          # public Hardware Sniffer reports, pinned by commit
-python3 tests/run_corpus.py build      # build + rules + ocvalidate for every machine in the corpus
-python3 -m p1401.selftest && python3 -m p1401.guide --selftest && python3 -m p1401.apple --selftest \
-  && python3 -m p1401.usbwriter --selftest && python3 -m p1401.scan --selftest && python3 -m p1401.nullmoth --selftest
+# В папке с распакованным артефактом
+sha256sum -c SHA256SUMS
+sudo apt install ./p1401-linux_*_amd64.deb
+1401 gui
 ```
 
-`loader/` is an experimental UEFI boot layer (Rust) tested in QEMU only. The app does not use it; sticks boot with
-OpenCore.
+CustomTkinter и его зависимости включены в пакет с фиксированными версиями и SHA-256. Устанавливать их через `sudo pip` не нужно. Системные зависимости, включая Tk, `iasl` и инструменты записи дисков, устанавливает пакетный менеджер.
 
-## Legal
+Для других дистрибутивов используйте переносимый архив; список системных зависимостей приведён в [docs/LINUX.md](docs/LINUX.md).
 
-1401 is free of charge, forever, under the **PolyForm Noncommercial License 1.0.0** (`LICENSE`): use it, change it,
-share it, but nobody may sell it or use it to make money. Third-party parts keep their own licences (`NOTICE.md`).
-The NullMoth name and the moth logo belong to NullMoth Systems and are not licensed.
+## Как пользоваться
+
+1. Откройте **Проверка железа** и нажмите **Сканировать этот ПК** либо **Загрузить Report.json**. Для сканирования нужен административный доступ; установленный пакет запрашивает его через PolicyKit.
+2. Выберите macOS по имени. Проверьте статусы устройств, диапазоны поддержки и замечания. Для сборки укажите папку ACPI с DSDT.
+3. Откройте **Сборка EFI** и нажмите **Собрать EFI**. Сборка доступна после успешной проверки выбранной macOS и наличия ACPI. Если отчёт или версия изменены, проверку нужно повторить.
+4. Прочитайте **BIOS и установка**. Сохраните резервные копии и подготовьте отдельное место для macOS.
+5. Откройте **Установочный USB**, обновите список накопителей и выберите флешку. Введите её точный путь для подтверждения очистки. **Все данные на выбранном USB будут удалены.**
+
+Если PolicyKit недоступен или запущен переносимый архив, приложение копирует команду `sudo 1401 ...` в буфер обмена для запуска в терминале. EFI можно собирать обычным пользователем.
+
+Результаты находятся в выбранной рабочей папке: `scan/`, `compatibility.json`, `build/`, `build-result.json`, `BIOS.txt`. Отчёты и журналы автоматически никуда не отправляются.
+
+## CLI
+
+```bash
+sudo 1401 scan /path/to/work/scan
+1401 check /path/to/work/scan/Report.json --macos 24 --output /path/to/work/compatibility.json
+1401 build /path/to/work/scan/Report.json /path/to/work/scan/ACPI /path/to/work/build \
+  --macos 24 --result /path/to/work/build-result.json
+1401 guide /path/to/work/scan/Report.json /path/to/work/build /path/to/work/BIOS.txt
+1401 disks
+sudo 1401 write /dev/sdX /path/to/work/build \
+  --profile /path/to/work/scan/Report.json --darwin 24 --confirm-erase /dev/sdX
+```
+
+CLI принимает **Darwin major**: 23 = Sonoma 14, 24 = Sequoia 15, 25 = Tahoe 26. В интерфейсе отображаются названия macOS. Команда `check` проверяет совместимость без ACPI-компиляции и скачивания компонентов; `build` дополнительно проверяет таблицы ACPI и готовую EFI.
+
+## Что означают результаты
+
+| Статус устройства | Значение |
+|---|---|
+| Поддерживается | Правила движка допускают устройство для выбранной macOS; дополнительные kexts могут потребоваться |
+| NVIDIA-драйвер | Применена политика 1401 для поддерживаемой карты NVIDIA и macOS Sequoia; используется отдельный драйвер |
+| Нужен OCLP | Для выбранной версии движок указывает поддержку через OpenCore Legacy Patcher |
+| Не поддерживается | Выбранная macOS вне известного диапазона либо устройство отклонено движком |
+| Не проверено правилами | Для этого устройства нет оценки; это не подтверждение совместимости |
+
+Аппаратная совместимость по таблицам **не гарантирует загрузку и работу macOS**. ACPI, разводку дисплея, USB-порты и работу драйверов необходимо проверить на конкретном ПК. Windows-only native diagnostics пока не портированы. CI проверяет запись на временном loop-образе; физическая флешка и установка macOS в рамках CI не тестируются.
+
+Для NVIDIA после установки macOS требуется [Mac companion и драйвер upstream](https://github.com/nullmoth/nvidia-macos-driver). Linux-порт сохраняет исходные правила 1401; подробнее об устройстве движка — [HOW-IT-WORKS.md](docs/HOW-IT-WORKS.md), об upstream-версии — [исходный README](docs/UPSTREAM-README.md).
+
+## Разработка и сборка
+
+```bash
+python3 -m venv .venv
+. .venv/bin/activate
+pip install --require-hashes --no-deps -r linux/requirements.txt
+python3 -m unittest discover -s tests -v
+python3 -m p1401.linux gui
+
+# На Linux: подготовить зависимости и собрать пакеты
+python3 -m pip install --require-hashes --no-deps --target build/linux-vendor -r linux/requirements.txt
+python3 tools/linux_release.py --output dist/linux --vendor build/linux-vendor
+```
+
+[Workflow Linux build and verification](.github/workflows/linux-build.yml) проверяет тесты, форматирование loop-образа, установку `.deb`, переносимый запуск, CustomTkinter-интерфейс под Xvfb, проверку железа, сборку EFI по закреплённому отчёту реального ПК и повторную проверку этой EFI под root.
+
+## Лицензии
+
+Исходный проект — [PolyForm Noncommercial 1.0.0](LICENSE). Лицензии сторонних компонентов перечислены в [NOTICE.md](NOTICE.md); CustomTkinter — MIT. Этот форк не предоставляет прав на брендинг NullMoth и не является официальной версией NullMoth Systems. Apple software не входит в пакет; образ восстановления загружается с серверов Apple.

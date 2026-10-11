@@ -36,6 +36,10 @@ def parser():
         p.add_argument('report'); p.add_argument('acpi')
         if name == 'build': p.add_argument('output')
         p.add_argument('--macos', default='')
+        if name == 'build': p.add_argument('--result', help='save structured build results')
+    p = sub.add_parser('check', help='check hardware compatibility using OpCore-Simplify rules')
+    p.add_argument('report'); p.add_argument('--macos', type=int, default=24, choices=range(19, 26))
+    p.add_argument('--output')
     sub.add_parser('disks', help='list disks and whether they can be erased')
     p = sub.add_parser('guide'); p.add_argument('report'); p.add_argument('build'); p.add_argument('output')
     p = sub.add_parser('write', help='ERASE a USB disk and create a macOS installer (requires root)')
@@ -56,9 +60,17 @@ def main(argv=None):
         if a.command == 'scan':
             if os.geteuid() != 0: raise RuntimeError('Run sudo 1401 scan OUTPUT to read ACPI tables.')
             child('p1401.scan', str(Path(a.output).resolve()))
+        elif a.command == 'check':
+            from . import linux_hardware
+            result = linux_hardware.analyze(a.report, a.macos)
+            if a.output: linux_hardware.save(result, a.output)
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+            return 0 if result['ok'] else 1
         elif a.command in ('plan', 'build'):
             args = [a.command, str(Path(a.report).resolve()), str(Path(a.acpi).resolve())]
             if a.command == 'build': args.append(str(Path(a.output).resolve()))
+            if a.command == 'build' and a.result:
+                args.extend(['--result', str(Path(a.result).resolve())])
             child('p1401', *args, '--macos', a.macos, '--echo', '--json')
             if a.command == 'build':
                 from . import linux_provenance
@@ -92,73 +104,8 @@ def main(argv=None):
 
 
 def gui():
-    import tkinter as tk
-    from tkinter import ttk, filedialog, messagebox
-    import queue
-    import threading
-    root = tk.Tk(); root.title('1401 — Linux'); root.geometry('850x640')
-    frame = ttk.Frame(root, padding=16); frame.pack(fill='both', expand=True)
-    ttk.Label(frame, text='1401 for Linux', font=('', 20)).pack(anchor='w')
-    ttk.Label(frame, text='Check hardware → Build EFI → Review BIOS guide → Create installer USB').pack(anchor='w', pady=8)
-    workspace = tk.StringVar(value=str(Path.home() / '1401-work'))
-    row = ttk.Frame(frame); row.pack(fill='x')
-    ttk.Entry(row, textvariable=workspace).pack(side='left', fill='x', expand=True)
-    ttk.Button(row, text='Workspace…', command=lambda: workspace.set(filedialog.askdirectory() or workspace.get())).pack(side='left')
-    options = ttk.Frame(frame); options.pack(fill='x', pady=8)
-    macos = tk.StringVar(value='24')
-    ttk.Label(options, text='Darwin version (24 = macOS 15):').pack(side='left')
-    ttk.Combobox(options, textvariable=macos, values=list(range(19, 26)), state='readonly', width=6).pack(side='left')
-    device = tk.StringVar()
-    ttk.Label(options, text=' USB device:').pack(side='left')
-    ttk.Entry(options, textvariable=device, width=18).pack(side='left')
-    buttons = ttk.Frame(frame); buttons.pack(fill='x', pady=8)
-    log = tk.Text(frame, wrap='word'); log.pack(fill='both', expand=True)
-    messages = queue.Queue(); controls = []; busy = [False]
-    def task(args):
-        if busy[0]: return
-        busy[0] = True
-        for b in controls: b.configure(state='disabled')
-        def worker():
-            try:
-                p = subprocess.Popen([sys.executable, '-u', '-m', 'p1401.linux', *args], cwd=REPO,
-                                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-                for line in p.stdout: messages.put(line)
-                messages.put(f'Process exited: {p.wait()}\n')
-            except Exception as error: messages.put(str(error) + '\n')
-            finally: messages.put(None)
-        threading.Thread(target=worker, daemon=True).start()
-    def paths():
-        w = Path(workspace.get()).expanduser().resolve(); w.mkdir(parents=True, exist_ok=True)
-        return w, w / 'scan/Report.json', w / 'scan/ACPI', w / 'build'
-    def scan():
-        if os.geteuid() != 0:
-            messagebox.showinfo('Root required', f'Run in a terminal:\nsudo 1401 scan {paths()[0] / "scan"}\nThen use Build EFI here.'); return
-        task(['scan', str(paths()[0] / 'scan')])
-    def build():
-        w, report, acpi, output = paths()
-        task(['build', str(report), str(acpi), str(output), '--macos', macos.get()])
-    def guide():
-        w, report, _, output = paths(); task(['guide', str(report), str(output), str(w / 'BIOS.txt')])
-    def write():
-        w, report, _, output = paths()
-        if os.geteuid() != 0:
-            messagebox.showinfo('Root required', f'Run in a terminal:\nsudo 1401 write {device.get()} {output} --profile {report} --darwin {macos.get()} --confirm-erase {device.get()}'); return
-        if messagebox.askyesno('Erase USB disk?', f'ALL DATA on {device.get()} will be erased. Continue?'):
-            task(['write', device.get(), str(output), '--profile', str(report), '--darwin', macos.get(), '--confirm-erase', device.get()])
-    for title, fn in [('Check PC', scan), ('Build EFI', build), ('BIOS guide', guide), ('List disks', lambda: task(['disks'])), ('Create USB', write)]:
-        b = ttk.Button(buttons, text=title, command=fn); b.pack(side='left', padx=3); controls.append(b)
-    def poll():
-        while not messages.empty():
-            item = messages.get()
-            if item is None:
-                busy[0] = False
-                for b in controls: b.configure(state='normal')
-            else: log.insert('end', item); log.see('end')
-        root.after(100, poll)
-    def close():
-        if busy[0]: messagebox.showinfo('Operation running', 'Wait for the current operation to finish before closing.'); return
-        root.destroy()
-    root.protocol('WM_DELETE_WINDOW', close); poll(); root.mainloop()
+    from .linux_gui import Application
+    Application().mainloop()
 
 
 if __name__ == '__main__':
