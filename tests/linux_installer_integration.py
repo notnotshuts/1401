@@ -89,13 +89,22 @@ def boot(image, output):
                 while time.monotonic() < deadline:
                     assert process.poll() is None, 'QEMU exited during boot'
                     qmp('screendump', {'filename': str(root / 'screen.ppm')})
-                    with Image.open(root / 'screen.ppm') as frame: frame.save(output / '09-uefi-picker.png')
-                    text = subprocess.run(['tesseract', str(output / '09-uefi-picker.png'), 'stdout', '--psm', '6'],
-                                          capture_output=True, text=True, check=True, timeout=15).stdout
-                    if re.search(r'(mac\s*os.*base\s*system|recovery)', text, re.I):
+                    with Image.open(root / 'screen.ppm') as frame:
+                        frame.save(output / '09-uefi-picker.png')
+                        # OpenCore's text menu occupies the upper-left corner.
+                        # Keep the full screenshot; bound OCR work on the blank 4MP framebuffer.
+                        frame.crop((0, 0, min(frame.width, 1280), min(frame.height, 400))).save(root / 'ocr.png')
+                    text = subprocess.run(['tesseract', str(root / 'ocr.png'), 'stdout', '--psm', '6'],
+                                          env=dict(os.environ, OMP_THREAD_LIMIT='1'),
+                                          capture_output=True, text=True, check=True, timeout=30).stdout
+                    serial_text = serial.read_text(errors='replace') if serial.exists() else ''
+                    recovery_registered = bool(re.search(r'Registering entry 1401 \[AppleRecv:Apple\]', serial_text))
+                    # FAT label 1401 is the real displayed name of this recovery entry.
+                    if recovery_registered and re.search(r'OpenCore Boot Menu', text, re.I) and re.search(r'1401.*external.*dmg', text, re.I):
                         (output / 'uefi-screen-text.txt').write_text(text)
                         print('OVMF booted the USB image into the OpenCore recovery picker.', flush=True)
-                        return {'firmware': code.name, 'emulation': 'QEMU TCG', 'recovery_entry_visible': True,
+                        return {'firmware': code.name, 'emulation': 'QEMU TCG', 'recovery_entry_visible': True, 'picker_label': '1401 (external) (dmg)',
+                                'serial_registered_apple_recovery': recovery_registered,
                                 'macos_kernel_boot': 'not tested', 'physical_usb': 'not tested'}
                     time.sleep(2)
                 (output / 'uefi-screen-text.txt').write_text(text)
