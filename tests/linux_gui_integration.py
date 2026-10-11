@@ -20,7 +20,13 @@ with tempfile.TemporaryDirectory() as td:
     app = Application(); app.workspace.set(str(Path(td) / 'workspace'))
     def capture(name):
         if not output: return
-        app.update()
+        # Xvfb has no window manager to repaint the parent after a modal
+        # dialog unmaps. Remap the actual window for those two screenshots.
+        if name in ('07-usb-progress.png', '08-usb-complete.png'):
+            app.withdraw(); app.update(); app.deiconify()
+        until = time.monotonic() + .2
+        while time.monotonic() < until:
+            app.update(); time.sleep(.02)
         subprocess.run(['scrot', '-o', str(output / name)], check=True)
     capture('01-overview.png')
     imported = Path(td) / 'Imported-Report.json'
