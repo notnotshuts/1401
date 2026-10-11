@@ -114,3 +114,10 @@ The workflow builds a `.deb`, a portable Python application archive and
 `SHA256SUMS`. Upstream source and third-party notices are included. Original
 PolyForm Noncommercial and third-party licences apply; no logo or trademark
 rights are granted by this fork.
+
+
+## Linux Mint: обновление после ошибки сканирования
+
+Установите свежий `.deb` поверх предыдущего: `sudo apt install ./p1401-linux_*_amd64.deb`. Закройте старое окно и запустите `1401 gui` обычным пользователем. Нажмите «Сканировать этот ПК»: новый запуск создаст отдельную папку и вернёт владельца файлов вашему пользователю. Затем используйте «Подготовить всё автоматически».
+
+Если Report.json импортирован, его папка ACPI должна быть от того же ПК. Отчёт без DSDT можно проверить, но из него нельзя собрать EFI. Откройте «Журнал» для конкретной причины, если сканирование осталось частичным.

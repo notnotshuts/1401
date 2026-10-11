@@ -74,3 +74,8 @@ The Linux package bundles the following pinned Python wheels, including their
 Wheel hashes are fixed in `linux/requirements.txt`. No runtime pip installation
 is required by the packaged desktop. The Linux application uses its own text
 branding and does not display the upstream moth logo.
+
+
+## Linux scanner adaptations
+
+`p1401/linux_scan.py` wraps the unchanged pinned Hardware Sniffer: physical CPU topology, PCI graphics fallback, resilient section collection, readable scan diagnostics, DRM connector parsing and binary EFI SecureBoot variables. `p1401/report.py` extends the validator instance to preserve an unknown Secure Boot state and accepts omitted empty Network / USB groups. It never substitutes missing CPU, GPU or disk observations with supported hardware.

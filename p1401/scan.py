@@ -77,6 +77,8 @@ def check(out_dir):
     try:
         with open(rp, encoding="utf-8") as fh:
             rep = json.load(fh)
+        if not isinstance(rep, dict): raise ValueError("Report.json must contain a hardware object")
+        fails.extend(rep.get("Scan Errors", []))
         for k in ("Motherboard", "CPU", "GPU"):
             if not rep.get(k):
                 fails.append(f"report has no {k}")
@@ -191,6 +193,9 @@ def _sniffer_body(out_dir, token):
     h.u.head = lambda *a, **k: None  # it clears the console; a child has none
     if platform.system() == "Windows":
         h.check_acpidump = acpidump_path  # pinned copy, not its own download
+    if platform.system() == 'Linux':
+        from .linux_scan import install
+        install(h.hardware_info, lambda: scan_evidence.save_partial(out_dir, token, getattr(h.hardware_info, 'result', {})))
     original_progress = h.hardware_info.utils.progress_bar
     def checkpoint_progress(*args, **kwargs):
         scan_evidence.save_partial(out_dir, token, getattr(h.hardware_info, "result", {}))

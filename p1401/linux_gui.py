@@ -10,12 +10,14 @@ import shutil
 import subprocess
 import sys
 import threading
+import tempfile
+import uuid
 from tkinter import filedialog, messagebox, StringVar
 
 import customtkinter as ctk
 
 from .linux import REPO
-from .linux_hardware import VERSIONS
+from .linux_hardware import SCHEMA, VERSIONS
 
 BG = '#10141c'
 CARD = '#1a2130'
@@ -37,7 +39,7 @@ STATUS = {'supported': ('Поддерживается', GREEN), 'driver': ('NVID
 def read_json(path):
     try:
         if Path(path).stat().st_size > 16 * 1024 * 1024: return None
-        value = json.loads(Path(path).read_text(encoding='utf-8'))
+        value = json.loads(Path(path).read_text(encoding='utf-8-sig'))
         return value if isinstance(value, dict) else None
     except (OSError, ValueError): return None
 
@@ -55,11 +57,12 @@ class Application(ctk.CTk):
         self.workspace = StringVar(value=settings.get('workspace', str(Path.home() / '1401-work')))
         self.report_path = StringVar(value=settings.get('report', str(self.work / 'scan/Report.json')))
         self.acpi_path = StringVar(value=settings.get('acpi', str(self.work / 'scan/ACPI')))
+        self.report_is_imported = settings.get('report_imported', not Path(self.report_file).is_relative_to(self.work))
         self.macos = StringVar(value=settings.get('macos', 'macOS Sequoia 15'))
         if self.macos.get() not in MACOS: self.macos.set('macOS Sequoia 15')
         self.disk = StringVar(value='Выберите USB-накопитель')
         self.wizard = False
-        self.disk_results = []; self.operation = None
+        self.disk_results = []; self.operation = None; self.operation_output = []
         self.events = queue.Queue(); self.busy = False; self.analysis = None; self.disks = {}
         self.action_controls = []; self.pages = {}; self.nav = {}; self.current_page = 'overview'
         self.grid_columnconfigure(1, weight=1); self.grid_rowconfigure(0, weight=1)
@@ -79,12 +82,18 @@ class Application(ctk.CTk):
         self.show('overview'); self.update_gates()
         self.protocol('WM_DELETE_WINDOW', self.close)
         self.after(80, self.poll)
-        self.report_path.trace_add('write', self.invalidate)
+        self.report_path.trace_add('write', self.report_changed)
         self.acpi_path.trace_add('write', self.invalidate)
         self.restore()
 
     @property
     def work(self): return Path(self.workspace.get()).expanduser().resolve()
+
+    @property
+    def report_file(self): return str(Path(self.report_path.get()).expanduser().resolve())
+
+    @property
+    def acpi_dir(self): return Path(self.acpi_path.get()).expanduser().resolve()
 
     @property
     def major(self): return int(MACOS[self.macos.get()])
@@ -218,6 +227,7 @@ class Application(ctk.CTk):
         folder = filedialog.askdirectory(initialdir=self.work)
         if folder:
             self.workspace.set(folder); self.report_path.set(str(self.work / 'scan/Report.json')); self.acpi_path.set(str(self.work / 'scan/ACPI'))
+            self.report_is_imported = False
             self.restore()
 
     def choose_acpi(self):
@@ -225,9 +235,16 @@ class Application(ctk.CTk):
         if folder: self.acpi_path.set(folder)
 
     def import_report(self):
-        path = filedialog.askopenfilename(title='Hardware Sniffer Report.json', filetypes=[('JSON report', '*.json')])
+        path = filedialog.askopenfilename(title='Hardware Sniffer Report.json', filetypes=[('JSON report', ('*.json', '*.JSON')), ('Все файлы', '*')])
         if path:
-            self.report_path.set(path); self.acpi_path.set(str(Path(path).parent / 'ACPI')); self.check()
+            self.report_path.set(path)
+            folder = Path(path).parent
+            acpi = next((p for p in folder.iterdir() if p.is_dir() and p.name.casefold() == 'acpi'), folder / 'ACPI')
+            self.acpi_path.set(str(acpi)); self.report_is_imported = True; self.check()
+
+    def report_changed(self, *args):
+        self.report_is_imported = True
+        self.invalidate()
 
     def invalidate(self, *args):
         self.analysis = None
@@ -238,29 +255,31 @@ class Application(ctk.CTk):
 
     def change_version(self):
         self.invalidate()
-        if Path(self.report_path.get()).is_file(): self.check()
+        if Path(self.report_file).is_file(): self.check()
 
     def analysis_current(self):
-        if not self.analysis or self.analysis.get('schema') != 2 or self.analysis.get('target') != self.major: return False
+        if not self.analysis or self.analysis.get('schema') != SCHEMA or self.analysis.get('target') != self.major: return False
         try:
-            path = Path(self.report_path.get())
+            path = Path(self.report_file)
             if path.stat().st_size > 16 * 1024 * 1024: return False
             return hashlib.sha256(path.read_bytes()).hexdigest() == self.analysis.get('report_sha256')
         except OSError: return False
 
     def acpi_ready(self):
         from .scan import dsdt_in
-        try: return bool(dsdt_in(self.acpi_path.get()))
+        try: return bool(dsdt_in(str(self.acpi_dir)))
         except OSError: return False
 
     def build_ready(self):
         from .machine_handoff import verified
         try:
-            profile = verified(str(self.build_dir), self.report_path.get())
+            profile = verified(str(self.build_dir), self.report_file)
             from .report import acpi_fingerprints
+            from .linux_provenance import checked_release
+            checked_release(profile.get('linux_opencore_release', {}))
             return (int(profile['macos_version'].split('.')[0]) == self.major
                     and bool(profile.get('acpi_fingerprints'))
-                    and profile['acpi_fingerprints'] == acpi_fingerprints(self.acpi_path.get()))
+                    and profile['acpi_fingerprints'] == acpi_fingerprints(str(self.acpi_dir)))
         except (OSError, ValueError, KeyError, RuntimeError): return False
 
     def update_gates(self):
@@ -273,22 +292,38 @@ class Application(ctk.CTk):
         self.wizard_button.configure(state='disabled' if self.busy else 'normal', text='Открыть гайд и подготовить USB' if built else 'Подготовить всё автоматически')
         disk = self.disks.get(self.disk.get())
         self.write_button.configure(state='normal' if built and disk and disk.get('eligible') and disk.get('SerialNumber') and not self.busy else 'disabled')
-        self.summary_labels['scan'].configure(text='Загружен' if Path(self.report_path.get()).is_file() else 'Не загружен')
+        self.summary_labels['scan'].configure(text='Загружен' if Path(self.report_file).is_file() else 'Не загружен')
         self.summary_labels['efi'].configure(text='Проверена' if built else 'Не создана', text_color=GREEN if built else MUTED)
         if ready:
             self.build_note.configure(text=f'{self.macos.get()} • ACPI: DSDT найдена\nРезультат будет сохранён в {self.build_dir}')
         else:
             self.build_note.configure(text='Для сборки нужна актуальная успешная проверка выбранной macOS и папка ACPI с DSDT.')
 
+    def installed_helper_current(self):
+        try:
+            return (REPO / 'LINUX_VERSION').read_text().strip() == Path('/usr/lib/1401/LINUX_VERSION').read_text().strip()
+        except OSError: return False
+
     def command(self, args, privileged=False):
         if privileged and os.geteuid() != 0:
-            if shutil.which('pkexec') and Path('/usr/bin/1401').is_file():
+            if shutil.which('pkexec') and Path('/usr/bin/1401').is_file() and self.installed_helper_current():
                 return ['pkexec', '/usr/bin/1401', *args]
-            text = shlex.join(['sudo', '1401', *args])
+            text = shlex.join(['sudo', 'env', f'PYTHONPATH={REPO}:{REPO / "vendor"}', sys.executable, '-m', 'p1401.linux', *args])
             self.clipboard_clear(); self.clipboard_append(text)
             messagebox.showinfo('Нужны права администратора', 'Команда скопирована в буфер обмена. Выполните её в терминале:\n\n' + text)
             return None
         return [sys.executable, '-u', '-m', 'p1401.linux', *args]
+
+    def last_error(self):
+        lines = self.operation_output[-20:]
+        return '\n'.join(line.rstrip() for line in lines if line.strip())[-1500:] or 'Подробности во вкладке «Журнал».'
+
+    def fail(self, text):
+        self.wizard = False
+        self.status_label.configure(text=text.splitlines()[0][:160] + ' См. журнал.', text_color=RED)
+        self.hardware_summary.configure(text=text[:700], text_color=RED)
+        self.append_log(text + '\n')
+        self.show('hardware')
 
     def start(self, args, title, callback=None, privileged=False):
         if self.busy: return
@@ -296,7 +331,10 @@ class Application(ctk.CTk):
         if command is None:
             self.wizard = False
             return
-        self.work.mkdir(parents=True, exist_ok=True)
+        try: self.work.mkdir(parents=True, exist_ok=True)
+        except OSError as error:
+            self.fail('Рабочая папка недоступна для записи: ' + str(error)); return
+        self.operation_output = []
         self.operation = args[0]
         self.busy = True; self.progress.configure(mode='indeterminate'); self.progress.start()
         self.status_label.configure(text=title, text_color=MUTED)
@@ -305,7 +343,7 @@ class Application(ctk.CTk):
         def worker():
             returncode = 1
             try:
-                p = subprocess.Popen(command, cwd=REPO, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+                p = subprocess.Popen(command, cwd=REPO, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding='utf-8', errors='replace', env=dict(os.environ, LC_ALL='C', LANG='C'))
                 for line in p.stdout: self.events.put(('log', line))
                 returncode = p.wait()
             except Exception as error: self.events.put(('log', str(error) + '\n'))
@@ -317,6 +355,8 @@ class Application(ctk.CTk):
             kind, value = self.events.get()
             if kind == 'log':
                 self.append_log(value)
+                self.operation_output.append(value)
+                self.operation_output = self.operation_output[-40:]
                 if self.operation == 'disks':
                     try:
                         disk = json.loads(value)
@@ -333,10 +373,10 @@ class Application(ctk.CTk):
                 if callback:
                     try: callback(code)
                     except Exception as error:
-                        self.wizard = False
-                        self.append_log(f'Не удалось прочитать результат: {error}\n')
-                        self.status_label.configure(text='Не удалось прочитать результат. См. журнал.', text_color=RED)
-                self.update_gates(); self.save_settings()
+                        self.fail(f'Не удалось прочитать результат: {error}\n' + self.last_error())
+                self.update_gates()
+                try: self.save_settings()
+                except OSError as error: self.append_log('Не удалось сохранить настройки: ' + str(error) + '\n')
         self.after(80, self.poll)
 
     def prepare(self):
@@ -344,8 +384,13 @@ class Application(ctk.CTk):
         if self.build_ready():
             self.show('guide'); self.guide(); return
         self.wizard = True
-        if Path(self.report_path.get()).is_file():
-            self.show('hardware'); self.check()
+        if Path(self.report_file).is_file():
+            receipt_path = Path(self.report_file).parent / 'scan-evidence.json'
+            receipt = read_json(receipt_path)
+            self.show('hardware')
+            incomplete = receipt_path.exists() and (not receipt or receipt.get('scan_status') != 'complete')
+            if incomplete and not self.report_is_imported: self.scan()
+            else: self.check()
         else:
             self.show('hardware'); self.scan()
 
@@ -375,26 +420,44 @@ class Application(ctk.CTk):
         self.show('usb'); self.refresh_disks()
 
     def scan(self):
-        path = self.work / 'scan'
+        if self.busy: return
+        try:
+            parent = self.work / 'scans'
+            parent.mkdir(parents=True, exist_ok=True)
+            path = Path(tempfile.mkdtemp(prefix='scan-', dir=parent))
+        except OSError as error:
+            self.fail('Не удалось создать папку сканирования: ' + str(error)); return
         self.report_path.set(str(path / 'Report.json')); self.acpi_path.set(str(path / 'ACPI'))
+        self.report_is_imported = False
         self.start(['scan', str(path)], 'Сканирование оборудования и ACPI…', self.scan_complete, privileged=True)
 
     def scan_complete(self, code):
         if code == 0: self.check()
         else:
             self.wizard = False
-            self.hardware_summary.configure(text='Сканирование не завершилось. Проверьте права администратора и журнал; можно импортировать Report.json и ACPI.')
+            if Path(self.report_file).is_file():
+                self.append_log('Сканирование частичное. Проверяем созданный отчёт; сборка требует устранения ошибок и DSDT.\n')
+                self.check()
+            else:
+                self.fail('Сканирование не создало Report.json. ' + self.last_error())
 
     def check(self):
-        path = self.work / 'compatibility.json'
+        path = self.work / ('compatibility-' + uuid.uuid4().hex + '.json')
         # A previous result can never stand in for a failed new check.
-        if path.exists(): path.unlink()
-        self.start(['check', self.report_path.get(), '--macos', str(self.major), '--output', str(path)],
+        if self.busy: return
+        self.analysis = None
+        self.start(['check', self.report_file, '--macos', str(self.major), '--output', str(path)],
                    'Проверка совместимости оборудования…', lambda _: self.load_analysis(path))
 
     def load_analysis(self, path):
         self.analysis = read_json(path)
+        if self.analysis and not self.analysis_current():
+            self.analysis = None
+            raise RuntimeError('Результат проверки устарел или относится к другому отчёту. Повторите проверку.')
         if not self.analysis: raise RuntimeError('Проверка не сохранила результат.')
+        from .linux_hardware import save
+        save(self.analysis, self.work / 'compatibility.json')
+        if Path(path).parent == self.work and Path(path).name.startswith('compatibility-'): Path(path).unlink(missing_ok=True)
         self.render_hardware(); self.update_gates(); self.continue_prepare()
 
     def render_hardware(self):
@@ -433,8 +496,8 @@ class Application(ctk.CTk):
             self.invalidate(); messagebox.showinfo('Нужна проверка', 'Отчёт изменился или нет ACPI. Проверьте железо снова.'); return
         result = self.work / 'build-result.json'
         if result.exists(): result.unlink()
-        self.start(['build', self.report_path.get(), self.acpi_path.get(), str(self.build_dir), '--macos', str(self.major), '--result', str(result)],
-                   'Сборка и проверка OpenCore EFI…', lambda _: self.load_build(result))
+        self.start(['build', self.report_file, str(self.acpi_dir), str(self.build_dir), '--macos', str(self.major), '--result', str(result)],
+                   'Сборка и проверка OpenCore EFI…', lambda code: self.load_build(result, advance=(code == 0)))
 
     def load_build(self, path, advance=True):
         result = read_json(path)
@@ -451,16 +514,17 @@ class Application(ctk.CTk):
         if advance and result.get('ok') and self.build_ready():
             self.wizard = False
             self.show('guide'); self.guide()
-        elif advance:
+        else:
             self.wizard = False
-            self.show('build')
+            if advance: self.show('build')
 
     def guide(self):
         path = self.work / 'BIOS.txt'
+        if self.busy: return
         if path.exists(): path.unlink()
         self.set_text(self.guide_text, 'Создание личного гайда для текущей проверенной EFI…')
-        self.start(['guide', self.report_path.get(), str(self.build_dir), str(path)], 'Подготовка шагов BIOS…',
-                   lambda code: self.set_text(self.guide_text, path.read_text(encoding='utf-8')) if code == 0 else None)
+        self.start(['guide', self.report_file, str(self.build_dir), str(path)], 'Подготовка шагов BIOS…',
+                   lambda code: self.set_text(self.guide_text, path.read_text(encoding='utf-8-sig')) if code == 0 else None)
 
     def refresh_disks(self):
         if self.busy: return
@@ -496,7 +560,7 @@ class Application(ctk.CTk):
         if not disk or not disk['eligible'] or not self.build_ready(): self.update_gates(); return
         dialog = ctk.CTkInputDialog(text=f'Будут удалены ВСЕ данные на {disk["Path"]}\n{disk["FriendlyName"]} · {disk["Size"] / 2**30:.1f} GiB\n\nВведите путь диска для подтверждения:', title='Подтвердить очистку USB')
         if dialog.get_input() != disk['Path']: return
-        self.start(['write', disk['Path'], str(self.build_dir), '--profile', self.report_path.get(), '--darwin', str(self.major), '--confirm-erase', disk['Path']],
+        self.start(['write', disk['Path'], str(self.build_dir), '--profile', self.report_file, '--darwin', str(self.major), '--confirm-erase', disk['Path']],
                    'Загрузка восстановления и запись USB…', self.write_complete, privileged=True)
 
     def write_complete(self, code):
@@ -511,12 +575,12 @@ class Application(ctk.CTk):
         if self.analysis_current(): self.render_hardware()
         else: self.analysis = None
         if read_json(self.work / 'build-result.json'): self.load_build(self.work / 'build-result.json', advance=False)
-        if (self.work / 'BIOS.txt').is_file(): self.set_text(self.guide_text, (self.work / 'BIOS.txt').read_text(encoding='utf-8'))
+        if (self.work / 'BIOS.txt').is_file(): self.set_text(self.guide_text, (self.work / 'BIOS.txt').read_text(encoding='utf-8-sig'))
         self.update_gates()
 
     def save_settings(self):
         self.settings_path.parent.mkdir(parents=True, exist_ok=True)
-        self.settings_path.write_text(json.dumps({'workspace': str(self.work), 'report': self.report_path.get(), 'acpi': self.acpi_path.get(), 'macos': self.macos.get()}, ensure_ascii=False), encoding='utf-8')
+        self.settings_path.write_text(json.dumps({'workspace': str(self.work), 'report': self.report_file, 'acpi': str(self.acpi_dir), 'macos': self.macos.get(), 'report_imported': self.report_is_imported}, ensure_ascii=False), encoding='utf-8')
 
     def export_guide(self):
         if not self.build_ready():

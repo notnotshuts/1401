@@ -474,7 +474,7 @@ def leaks(page):
 
 def load(report_path, config_path):
     import json  # noqa: PLC0415
-    with open(report_path, encoding="utf-8") as fh:
+    with open(report_path, encoding="utf-8-sig") as fh:
         report = json.load(fh)
     with open(config_path, "rb") as fh:
         config = plistlib.load(fh)

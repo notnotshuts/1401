@@ -94,6 +94,12 @@ def diagnostic_hardware(report):
 def normalize(report):
     """Mutates and returns (report, notes). Each note names what was dropped and why."""
     notes = []
+    # Linux Sniffer omits empty device groups. No network adapter or input device
+    # is not a malformed report; storage and CPU/GPU remain mandatory.
+    for section in ('Network', 'USB Controllers'):
+        if section not in report:
+            report[section] = {}
+            notes.append(f'{section}: раздел отсутствует — устройства не заявлены в отчёте.')
     # 10-07 (an uploaded log): a Sniffer report with no "Input" section at all was rejected ("Root: Missing
     # required key 'Input'"). Input lists PS/2 and I2C keyboards/trackpads; the engine only uses it to pick their kexts and
     # reads a missing one as empty, so an empty section is the same build the engine would make - it just passes the check.
@@ -140,7 +146,7 @@ def normalize(report):
 def normalized_copy(report_path, dest_dir, raw_hardware=None):
     """Normalize a private copy of the parsed input, or read a standalone imported report."""
     if raw_hardware is None:
-        with open(report_path, encoding="utf-8") as fh:
+        with open(report_path, encoding="utf-8-sig") as fh:
             hardware = json.load(fh)
     else:
         hardware = copy.deepcopy(raw_hardware)
@@ -149,3 +155,11 @@ def normalized_copy(report_path, dest_dir, raw_hardware=None):
     with open(out, "w", encoding="utf-8") as fh:
         json.dump(report, fh, indent=2)
     return out, notes
+
+
+def configure_validator(validator):
+    """An unreadable Linux EFI variable must remain Unknown, rather than falsely Disabled."""
+    schema = getattr(validator, 'SCHEMA', None)
+    if schema:
+        schema['schema']['BIOS']['schema']['Secure Boot']['pattern'] = r'^(Enabled|Disabled|Unknown)$'
+    return validator

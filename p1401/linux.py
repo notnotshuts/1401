@@ -11,7 +11,7 @@ REPO = Path(__file__).resolve().parent.parent
 
 
 def child(*args):
-    result = subprocess.run([sys.executable, '-u', '-m', *args], cwd=REPO)
+    result = subprocess.run([sys.executable, '-u', '-m', *args], cwd=REPO, env=dict(os.environ, LC_ALL='C', LANG='C'))
     if result.returncode:
         raise RuntimeError(f'{args[0]} failed (exit {result.returncode})')
 
@@ -22,6 +22,20 @@ def make_guide(report_path, build, output):
     profile = machine_handoff.verified(build, report_path)
     Path(output).write_text(linux_guide.render(rep, cfg, profile), encoding='utf-8')
     print(f'BIOS guide: {output}')
+
+
+def restore_scan_owner(destination):
+    """Return this root-created scan to the desktop user, including failed-run diagnostics."""
+    import pwd
+    candidate = os.environ.get('PKEXEC_UID') or os.environ.get('SUDO_UID')
+    if not candidate or not candidate.isdigit() or int(candidate) == 0: return
+    user = pwd.getpwuid(int(candidate))
+    root = Path(destination)
+    if not root.is_dir() or root.is_symlink(): return
+    for folder, directories, files in os.walk(root, followlinks=False):
+        for path in [Path(folder), *(Path(folder) / name for name in files)]:
+            if path.is_symlink(): continue
+            os.chown(path, user.pw_uid, user.pw_gid, follow_symlinks=False)
 
 
 def parser():
@@ -58,7 +72,11 @@ def main(argv=None):
             gui(); return 0
         if a.command == 'scan':
             if os.geteuid() != 0: raise RuntimeError('Run sudo 1401 scan OUTPUT to read ACPI tables.')
-            child('p1401.scan', str(Path(a.output).resolve()))
+            destination = Path(a.output).expanduser().resolve()
+            try:
+                child('p1401.scan', str(destination))
+            finally:
+                restore_scan_owner(destination)
         elif a.command == 'check':
             from . import linux_hardware
             result = linux_hardware.analyze(a.report, a.macos)
@@ -66,14 +84,14 @@ def main(argv=None):
             print(json.dumps(result, indent=2, ensure_ascii=False))
             return 0 if result['ok'] else 1
         elif a.command in ('plan', 'build'):
-            args = [a.command, str(Path(a.report).resolve()), str(Path(a.acpi).resolve())]
-            if a.command == 'build': args.append(str(Path(a.output).resolve()))
+            args = [a.command, str(Path(a.report).expanduser().resolve()), str(Path(a.acpi).expanduser().resolve())]
+            if a.command == 'build': args.append(str(Path(a.output).expanduser().resolve()))
             if a.command == 'build' and a.result:
-                args.extend(['--result', str(Path(a.result).resolve())])
+                args.extend(['--result', str(Path(a.result).expanduser().resolve())])
             child('p1401', *args, '--macos', a.macos, '--echo', '--json')
             if a.command == 'build':
                 from . import linux_provenance
-                linux_provenance.record(str(Path(a.output).resolve()), str(Path(a.report).resolve()))
+                linux_provenance.record(str(Path(a.output).expanduser().resolve()), str(Path(a.report).expanduser().resolve()))
         elif a.command == 'guide':
             make_guide(a.report, a.build, a.output)
         elif a.command == 'disks':

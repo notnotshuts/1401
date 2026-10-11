@@ -14,6 +14,7 @@ output = Path(a.output).resolve(); output.mkdir(parents=True, exist_ok=True)
 with tempfile.TemporaryDirectory() as td:
     os.environ['XDG_CONFIG_HOME'] = td
     from p1401.linux_gui import Application
+    from p1401.linux_hardware import SCHEMA
     app = Application()
     app.workspace.set(td)
     app.update_idletasks()
@@ -23,9 +24,26 @@ with tempfile.TemporaryDirectory() as td:
         subprocess.run(['scrot', '-a', region, str(output / name)], check=True)
     capture('overview.png')
     assert app.build_button.cget('state') == 'disabled'
+    # Every scan gets a fresh directory, including after a previous failure.
+    with patch.object(app, 'start') as start:
+        app.scan(); first = app.report_file
+        app.scan(); second = app.report_file
+        assert first != second and start.call_count == 2
+        assert Path(first).parent.is_dir() and Path(second).parent.is_dir()
+    app.report_path.set(str(Path(td) / 'missing.json'))
+    # Failed checks must never reload a previous compatibility snapshot.
+    with patch.object(app, 'start') as start:
+        app.check(); first_output = start.call_args.args[0][-1]
+        app.check(); second_output = start.call_args.args[0][-1]
+        assert first_output != second_output
+    app.wizard = True
+    with patch.object(app, 'start') as start:
+        app.prepare()
+        assert start.call_args.args[0][0] == 'scan'
     if a.report:
         app.report_path.set(a.report)
         app.acpi_path.set(str(Path(a.report).parent / 'ACPI'))
+        app.wizard = False
         app.load_analysis(a.analysis)
         app.show('hardware'); app.update()
         assert len(app.hardware_rows.winfo_children()) > 4
@@ -47,7 +65,7 @@ with tempfile.TemporaryDirectory() as td:
         # Old checker snapshots must be rejected even for an unchanged report.
         app.analysis['schema'] = 1
         assert not app.analysis_current()
-        app.analysis['schema'] = 2
+        app.analysis['schema'] = SCHEMA
         # A changed target invalidates the old analysis and disables build immediately.
         app.macos.set('macOS Tahoe 26'); app.update_gates()
         assert app.build_button.cget('state') == 'disabled'

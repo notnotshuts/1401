@@ -40,6 +40,8 @@ jobs:
           "$RUNNER_TEMP/portable/1401-linux-x86_64/1401" --help
           cd "$GITHUB_WORKSPACE"
           xvfb-run -a env PYTHONPATH=/usr/lib/1401:/usr/lib/1401/vendor python3 tests/linux_gui_smoke.py --output dist/linux/ui
+      - name: Exercise installed native Linux scanning and readable output
+        run: sudo env PYTHONPATH="$GITHUB_WORKSPACE" python3 tests/linux_scan_integration.py
       - name: Build and validate a real corpus EFI with the installed Linux launcher
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -53,6 +55,8 @@ jobs:
           1401 check "$GITHUB_WORKSPACE/tests/corpus/cache/x570-5800x-6600xt/Report.json" --macos 24 --output "$RUNNER_TEMP/compatibility.json"
           xvfb-run -a env PYTHONPATH=/usr/lib/1401:/usr/lib/1401/vendor python3 tests/linux_gui_smoke.py --report "$GITHUB_WORKSPACE/tests/corpus/cache/x570-5800x-6600xt/Report.json" --analysis "$RUNNER_TEMP/compatibility.json" --output dist/linux/ui
           1401 build "$GITHUB_WORKSPACE/tests/corpus/cache/x570-5800x-6600xt/Report.json" "$GITHUB_WORKSPACE/tests/corpus/cache/x570-5800x-6600xt/ACPI" "$RUNNER_TEMP/corpus-efi" --macos 24
+          runtime="$HOME/.cache/1401/runtime-$(cat /usr/lib/1401/LINUX_VERSION)"
+          xvfb-run -a env PYTHONPATH="$runtime:$runtime/vendor" python3 tests/linux_gui_integration.py --report "$GITHUB_WORKSPACE/tests/corpus/cache/x570-5800x-6600xt/Report.json"
           1401 guide "$GITHUB_WORKSPACE/tests/corpus/cache/x570-5800x-6600xt/Report.json" "$RUNNER_TEMP/corpus-efi" "$RUNNER_TEMP/BIOS.txt"
           sudo env PYTHONPATH=/usr/lib/1401:/usr/lib/1401/vendor python3 - "$RUNNER_TEMP/corpus-efi" <<'PYCODE'
           import sys
@@ -87,9 +91,44 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  mint-base:
+    name: Verify Mint 22 / Ubuntu 24.04 runtime
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-tk python3-certifi pciutils usbutils fdisk dosfstools udev xvfb acpica-tools python3-pip policykit-1 scrot
+          python3 -m pip install --require-hashes --no-deps --target build/linux-vendor -r linux/requirements.txt
+          echo "PYTHONPATH=$GITHUB_WORKSPACE/build/linux-vendor:$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
+      - name: Test and install Mint-base packages
+        run: |
+          python3 -m unittest discover -s tests -q
+          python3 tools/linux_release.py --output dist/linux --vendor build/linux-vendor
+          sudo apt-get install -y ./dist/linux/*.deb
+          xvfb-run -a env PYTHONPATH=/usr/lib/1401:/usr/lib/1401/vendor python3 tests/linux_gui_smoke.py --output dist/linux/ui
+          sudo env PYTHONPATH="$GITHUB_WORKSPACE" python3 tests/linux_scan_integration.py
+      - name: Fetch pinned report and test the actual desktop workflow
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 - <<'PYCODE'
+          import json
+          from tests.corpus.fetch import fetch_entry
+          entries = json.load(open('tests/corpus/manifest.json'))['entries']
+          print(fetch_entry(next(e for e in entries if e['slug'] == 'x570-5800x-6600xt')))
+          PYCODE
+          1401 --help
+          runtime="$HOME/.cache/1401/runtime-$(cat /usr/lib/1401/LINUX_VERSION)"
+          xvfb-run -a env PYTHONPATH="$runtime:$runtime/vendor" python3 tests/linux_gui_integration.py --report "$GITHUB_WORKSPACE/tests/corpus/cache/x570-5800x-6600xt/Report.json"
+
   release:
     name: Publish Linux release
-    needs: linux
+    needs: [linux, mint-base]
     if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-22.04
     timeout-minutes: 10

@@ -555,10 +555,12 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
             if len(raw) > 16 * 1024 * 1024:
                 raise RuntimeError("The hardware report exceeded its bounded size. Run Check this PC again.")
             res.report_sha256 = hashlib.sha256(raw).hexdigest()
-            res.hardware = json.loads(raw.decode("utf-8"))
+            res.hardware = json.loads(raw.decode("utf-8-sig"))
             if not isinstance(res.hardware, dict):
                 raise RuntimeError("The hardware report must contain a JSON object. Run Check this PC again.")
             res.raw_hardware = copy.deepcopy(res.hardware)
+            if res.hardware.get("Scan Errors"):
+                raise RuntimeError("Hardware scan incomplete: " + str(res.hardware["Scan Errors"]) + ". Run a fresh scan before building.")
             if not os.path.isdir(acpi_dir) or not os.listdir(acpi_dir):
                 raise RuntimeError("Check this PC did not save the ACPI tables. Run Check this PC again (as administrator).")
             res.acpi_fingerprints = report_mod.acpi_fingerprints(acpi_dir)
@@ -567,6 +569,7 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
             o = mod.OCPE()
             o.result_dir = out_dir
             _use_ock_cache(o)
+            report_mod.configure_validator(o.v)
             valid, errors, warnings, report = o.v.validate_report(rpath)
             if not valid or errors:
                 raise RuntimeError(f"hardware report rejected: {errors}")

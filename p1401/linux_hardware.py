@@ -11,6 +11,7 @@ from types import SimpleNamespace
 
 from . import engine, nullmoth, report
 
+SCHEMA = 3
 VERSIONS = {19: 'Catalina 10.15', 20: 'Big Sur 11', 21: 'Monterey 12',
             22: 'Ventura 13', 23: 'Sonoma 14', 24: 'Sequoia 15', 25: 'Tahoe 26'}
 SECTIONS = ('CPU', 'GPU', 'Sound', 'Biometric', 'Network', 'Storage Controllers', 'Bluetooth', 'SD Controller')
@@ -79,7 +80,7 @@ def devices(hardware, major):
 
 def analyze(report_path, major=24):
     """No ACPI compiler, downloads or EFI writes. Run in a child to isolate Scripts packages."""
-    output = {'schema': 2, 'ok': False, 'target': int(major), 'report_path': str(Path(report_path).resolve()),
+    output = {'schema': SCHEMA, 'ok': False, 'target': int(major), 'report_path': str(Path(report_path).resolve()),
               'report_sha256': '', 'hardware': {}, 'devices': [], 'native_versions': [], 'oclp_versions': [],
               'blockers': [], 'warnings': [], 'transcript': '', 'source': 'Pinned OpCore-Simplify + 1401 NVIDIA policy'}
     transcript = io.StringIO()
@@ -89,6 +90,9 @@ def analyze(report_path, major=24):
         if len(raw_bytes) > 16 * 1024 * 1024: raise ValueError('Hardware report exceeds 16 MiB.')
         output['report_sha256'] = hashlib.sha256(raw_bytes).hexdigest()
         raw = json.loads(raw_bytes)
+        if isinstance(raw, dict):
+            output['blockers'].extend(raw.get('Scan Errors', []))
+            output['warnings'].extend(raw.get('Scan Notes', []))
         if not isinstance(raw, dict): raise ValueError('Hardware report must be a JSON object.')
         if engine.UPSTREAM not in sys.path: sys.path.insert(0, engine.UPSTREAM)
         from Scripts.compatibility_checker import CompatibilityChecker
@@ -96,8 +100,8 @@ def analyze(report_path, major=24):
         from Scripts.datasets import os_data
         with tempfile.TemporaryDirectory(prefix='1401-check-') as td:
             normalized, notes = report.normalized_copy(report_path, td, raw_hardware=raw)
-            valid, errors, warnings, hardware = ReportValidator().validate_report(normalized)
-        output['warnings'] = notes + warnings
+            valid, errors, warnings, hardware = report.configure_validator(ReportValidator()).validate_report(normalized)
+        output['warnings'].extend(notes + warnings)
         output['hardware'] = hardware or raw
         if not valid or errors:
             output['blockers'].extend(errors)
