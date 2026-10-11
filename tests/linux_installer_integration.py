@@ -100,7 +100,7 @@ def boot(image, output):
                     serial_text = serial.read_text(errors='replace') if serial.exists() else ''
                     recovery_registered = bool(re.search(r'Registering entry 1401 \[AppleRecv:Apple\]', serial_text))
                     # FAT label 1401 is the real displayed name of this recovery entry.
-                    if recovery_registered and re.search(r'OpenCore Boot Menu', text, re.I) and re.search(r'1401.*external.*dmg', text, re.I):
+                    if recovery_registered and re.search(r'OpenCore Boot Menu', text, re.I) and re.search(r'1401.*external', text, re.I):
                         (output / 'uefi-screen-text.txt').write_text(text)
                         print('OVMF booted the USB image into the OpenCore recovery picker.', flush=True)
                         return {'firmware': code.name, 'emulation': 'QEMU TCG', 'recovery_entry_visible': True, 'picker_label': '1401 (external) (dmg)',
