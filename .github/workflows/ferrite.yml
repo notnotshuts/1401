@@ -46,14 +46,14 @@ jobs:
         run: python tools/package.py --platform windows
       - name: Linux binaries
         if: runner.os == 'Linux'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: ferrite-linux-x86_64-preview
           if-no-files-found: error
           path: dist/*.tar.gz
       - name: Windows binaries
         if: runner.os == 'Windows'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: ferrite-windows-x86_64-preview
           if-no-files-found: error
@@ -88,17 +88,18 @@ jobs:
           target/${{ matrix.target }}/release/ferrite-cli snapshot "$RUNNER_TEMP/ferrite-scan"
           target/${{ matrix.target }}/release/ferrite-cli disks
       - name: Build and verify app bundle and DMG
+        id: package
         run: python3 tools/macos/package.py --target ${{ matrix.target }} --skip-build
       - name: Verify CLI inside app bundle
         run: |
           arch="${{ matrix.target }}"
           arch="${arch%%-*}"
           "dist/macos/$arch/Ferrite.app/Contents/MacOS/ferrite-cli" --language en guide "$RUNNER_TEMP/Guide-en.md"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7.0.2
         with:
           name: ferrite-macos-${{ matrix.target }}-preview
           if-no-files-found: error
-          path: dist/macos/**/*.dmg
+          path: ${{ steps.package.outputs.dmg }}
   release:
     needs: [verify, macos]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'

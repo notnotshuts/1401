@@ -71,4 +71,8 @@ if __name__ == "__main__":
     parser.add_argument("--target", choices=["native", "universal", "aarch64-apple-darwin", "x86_64-apple-darwin"], default="native")
     parser.add_argument("--skip-build", action="store_true")
     args = parser.parse_args()
-    print(package(args.target, args.skip_build))
+    dmg = package(args.target, args.skip_build)
+    print(dmg)
+    if output := os.environ.get("GITHUB_OUTPUT"):
+        with open(output, "a", encoding="utf-8") as file:
+            file.write(f"dmg={dmg}\n")
