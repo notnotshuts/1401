@@ -2,9 +2,9 @@ name: Ferrite Rust
 on:
   push:
     branches: [main, 'ferrite/**']
-    paths: ['Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', 'crates/**', 'tools/macos/**', '.github/workflows/ferrite.yml']
+    paths: ['Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', 'crates/**', 'tools/**', 'licenses/**', 'docs/**', 'README.md', 'NOTICE.md', 'LICENSE', '.github/workflows/ferrite.yml']
   pull_request:
-    paths: ['Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', 'crates/**', 'tools/macos/**', '.github/workflows/ferrite.yml']
+    paths: ['Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', 'crates/**', 'tools/**', 'licenses/**', 'docs/**', 'README.md', 'NOTICE.md', 'LICENSE', '.github/workflows/ferrite.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -18,8 +18,9 @@ jobs:
       matrix:
         os: [ubuntu-24.04, windows-2022]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: 1.99.0
@@ -32,30 +33,31 @@ jobs:
       - run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - run: cargo test --workspace --locked
       - run: cargo build --release --workspace --locked
+      - name: Smoke-test CLI
+        shell: bash
+        run: |
+          target/release/ferrite-cli --help
+          target/release/ferrite-cli --language en guide "$RUNNER_TEMP/Guide-en.md"
+      - name: Package Linux
+        if: runner.os == 'Linux'
+        run: python3 tools/package.py --platform linux
+      - name: Package Windows
+        if: runner.os == 'Windows'
+        run: python tools/package.py --platform windows
       - name: Linux binaries
         if: runner.os == 'Linux'
         uses: actions/upload-artifact@v4
         with:
           name: ferrite-linux-x86_64-preview
-          path: |
-            target/release/ferrite
-            target/release/ferrite-cli
-            LICENSE
-            NOTICE.md
-            upstream/OpCore-Simplify/LICENSE
-            upstream/Hardware-Sniffer/LICENSE
+          if-no-files-found: error
+          path: dist/*.tar.gz
       - name: Windows binaries
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@v4
         with:
           name: ferrite-windows-x86_64-preview
-          path: |
-            target/release/ferrite.exe
-            target/release/ferrite-cli.exe
-            LICENSE
-            NOTICE.md
-            upstream/OpCore-Simplify/LICENSE
-            upstream/Hardware-Sniffer/LICENSE
+          if-no-files-found: error
+          path: dist/*.zip
   macos:
     strategy:
       fail-fast: false
@@ -66,10 +68,11 @@ jobs:
           - os: macos-15-intel
             target: x86_64-apple-darwin
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
     env:
       MACOSX_DEPLOYMENT_TARGET: '12.0'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: 1.99.0
@@ -94,4 +97,50 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: ferrite-macos-${{ matrix.target }}-preview
+          if-no-files-found: error
           path: dist/macos/**/*.dmg
+  release:
+    needs: [verify, macos]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v5
+        with:
+          pattern: ferrite-*-preview
+          merge-multiple: true
+          path: dist/release
+      - name: Prepare checksums and release notes
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import hashlib, os, pathlib, tomllib
+          root = pathlib.Path('dist/release')
+          files = sorted(p for p in root.rglob('*') if p.is_file())
+          version = tomllib.loads(pathlib.Path('Cargo.toml').read_text())['workspace']['package']['version']
+          expected = [f'Ferrite-{version}-{suffix}' for suffix in ['linux-x86_64.tar.gz', 'windows-x86_64.zip', 'aarch64.dmg', 'x86_64.dmg']]
+          assert sorted(p.name for p in files) == sorted(expected), 'Missing or unexpected release package'
+          for p in files:
+              if p.parent != root:
+                  p.rename(root / p.name)
+          files = sorted(p for p in root.iterdir() if p.is_file())
+          (root / 'SHA256SUMS').write_text(''.join(f'{hashlib.file_digest(p.open("rb"), "sha256").hexdigest()}  {p.name}\n' for p in files))
+          sha = os.environ['GITHUB_SHA']
+          repo = os.environ['GITHUB_REPOSITORY']
+          pathlib.Path('release-notes.md').write_text(f'Ferrite {version} preview.\n\nLinux/Windows: распакуйте архив и держите GUI и CLI рядом. macOS: откройте DMG и перенесите приложение в Applications.\n\n[Инструкции и ограничения](https://github.com/{repo}/blob/{sha}/README.md). Физическая запись USB на macOS отключена.\n\nСборки прошли fmt, строгий Clippy и Rust-тесты на Linux, Windows, macOS Intel и Apple Silicon. Загрузка macOS на физическом ПК этим не подтверждается.\n')
+          with open(os.environ['GITHUB_ENV'], 'a') as env:
+              env.write(f'FERRITE_VERSION={version}\nFERRITE_TAG=ferrite-v{version}-{sha[:12]}\n')
+          PY
+      - name: Publish Ferrite preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          if gh release view "$FERRITE_TAG" >/dev/null 2>&1; then
+            gh release upload "$FERRITE_TAG" dist/release/* --clobber
+          else
+            gh release create "$FERRITE_TAG" dist/release/* --target "$GITHUB_SHA" --title "Ferrite $FERRITE_VERSION preview" --notes-file release-notes.md --prerelease
+          fi

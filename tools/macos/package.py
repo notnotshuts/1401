@@ -47,8 +47,7 @@ def package(target: str, skip_build: bool) -> pathlib.Path:
         plistlib.dump(info, file)
     shutil.copy2(ROOT / "LICENSE", resources / "LICENSE")
     shutil.copy2(ROOT / "NOTICE.md", resources / "NOTICE.md")
-    for source, name in [("OpCore-Simplify", "OpCore-Simplify-LICENSE"), ("Hardware-Sniffer", "Hardware-Sniffer-LICENSE")]:
-        shutil.copy2(ROOT / "upstream" / source / "LICENSE", resources / name)
+    shutil.copytree(ROOT / "licenses", resources / "licenses")
     for language in ["ru", "en", "es"]:
         shutil.copy2(ROOT / "docs/ferrite" / f"Guide-{language}.md", resources / f"Guide-{language}.md")
     subprocess.run(["plutil", "-lint", str(bundle / "Contents/Info.plist")], check=True)

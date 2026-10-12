@@ -1,9 +1,7 @@
 //! Shared FAT32/MBR writer, guarded by platform-native disk identity and locks.
-use crate::{
-    builder::Build,
-    disks::{self, Disk},
-    downloads, recovery,
-};
+#[cfg(any(target_os = "linux", target_os = "windows"))]
+use crate::disks;
+use crate::{builder::Build, disks::Disk, downloads, recovery};
 use anyhow::{Context, Result, bail};
 use fatfs::{FatType, FileSystem, FormatVolumeOptions, FsOptions};
 use serde::{Deserialize, Serialize};
@@ -332,9 +330,26 @@ pub fn disk(
     recovery: &Path,
     progress: &mut impl FnMut(&str, u64, u64),
 ) -> Result<Written> {
-    if !crate::platform::physical_usb_supported() {
+    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
+    {
+        // Unsupported hosts must never validate payloads or open a physical disk.
+        let _ = (selected, confirm, build, recovery, progress);
         bail!("{}", crate::i18n::tr("mac.usb_image_only"));
     }
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
+    {
+        disk_supported(selected, confirm, build, recovery, progress)
+    }
+}
+
+#[cfg(any(target_os = "linux", target_os = "windows"))]
+fn disk_supported(
+    selected: &Disk,
+    confirm: &str,
+    build: &Path,
+    recovery: &Path,
+    progress: &mut impl FnMut(&str, u64, u64),
+) -> Result<Written> {
     if selected.sector_size != 512 {
         bail!("Для записи нужен логический сектор 512 байт");
     }
@@ -458,10 +473,6 @@ pub fn disk(
                 .push("Файлы проверены; для обновления разделов переподключите USB".into());
         }
         Ok(result)
-    }
-    #[cfg(not(any(target_os = "windows", target_os = "linux")))]
-    {
-        bail!("USB writer доступен только на Windows/Linux")
     }
 }
 /// Non-destructive integration route; only creates a fresh regular disk-image file.

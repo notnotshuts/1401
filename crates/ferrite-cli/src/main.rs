@@ -9,7 +9,7 @@ use std::{path::PathBuf, process::ExitCode};
 #[command(
     name = "ferrite",
     version,
-    about = "Ferrite — аппаратная диагностика и проверка OpenCore для Windows/Linux"
+    about = "Ferrite — аппаратная диагностика и проверка OpenCore для Windows/Linux/macOS"
 )]
 struct Args {
     /// Language for the installation guide

@@ -1,0 +1,28 @@
+{
+  "OpCore-Simplify": {
+    "url": "https://github.com/lzhoang2801/OpCore-Simplify",
+    "commit": "e5d8a9f551b1e2a96e2f968696b460b65a7dad2e",
+    "committed": "2026-08-27T22:42:37+07:00",
+    "license": "BSD-3-Clause"
+  },
+  "Hardware-Sniffer": {
+    "url": "https://github.com/lzhoang2801/Hardware-Sniffer",
+    "commit": "6570f91c33c63f5bf481db31789f903b0d12099f",
+    "committed": "2026-08-16T08:36:19+07:00",
+    "license": "BSD-3-Clause"
+  },
+  "files": {
+    "pci_data.py": {
+      "original_path": "OpCore-Simplify/Scripts/datasets/pci_data.py",
+      "sha256": "3d29ec8662ca0e49b768de38cc671e52ef962c40e5c51f014eab4a3b46ad320d"
+    },
+    "codec_layouts.py": {
+      "original_path": "OpCore-Simplify/Scripts/datasets/codec_layouts.py",
+      "sha256": "5818bb677607f44b7e9afc8b03b2e24a14fca01712d86e238cbe05975765302f"
+    },
+    "gpu_identifier.py": {
+      "original_path": "Hardware-Sniffer/Scripts/gpu_identifier.py",
+      "sha256": "987b3a94a66ae7cf741d09b175746d8378350c5212a49ca936e2123951a11763"
+    }
+  }
+}
