@@ -1,0 +1,618 @@
+[
+  {
+    "name": "iMac11,1",
+    "cpu": "i7-860",
+    "cpu_generation": "Lynnfield",
+    "discrete_gpu": "ATI Radeon HD 4850",
+    "initial_support": "10.2.0",
+    "last_supported_version": "17.99.99"
+  },
+  {
+    "name": "iMac11,2",
+    "cpu": "i5-680",
+    "cpu_generation": "Clarkdale",
+    "discrete_gpu": "ATI Radeon HD 4670",
+    "initial_support": "10.3.0",
+    "last_supported_version": "17.99.99"
+  },
+  {
+    "name": "iMac11,3",
+    "cpu": "i7-870",
+    "cpu_generation": "Clarkdale",
+    "discrete_gpu": "ATI Radeon HD 5670",
+    "initial_support": "10.3.0",
+    "last_supported_version": "17.99.99"
+  },
+  {
+    "name": "iMac12,1",
+    "cpu": "i5-2400S",
+    "cpu_generation": "Sandy Bridge",
+    "discrete_gpu": "AMD Radeon HD 6750M",
+    "initial_support": "10.6.0",
+    "last_supported_version": "17.99.99"
+  },
+  {
+    "name": "iMac12,2",
+    "cpu": "i7-2600",
+    "cpu_generation": "Sandy Bridge",
+    "discrete_gpu": "AMD Radeon HD 6770M",
+    "initial_support": "10.6.0",
+    "last_supported_version": "17.99.99"
+  },
+  {
+    "name": "iMac13,1",
+    "cpu": "i7-3770S",
+    "cpu_generation": "Ivy Bridge",
+    "discrete_gpu": "NVIDIA GeForce GT 640M",
+    "initial_support": "12.2.0",
+    "last_supported_version": "19.99.99"
+  },
+  {
+    "name": "iMac13,2",
+    "cpu": "i5-3470S",
+    "cpu_generation": "Ivy Bridge",
+    "discrete_gpu": "NVIDIA GeForce GTX 660M",
+    "initial_support": "12.2.0",
+    "last_supported_version": "19.99.99"
+  },
+  {
+    "name": "iMac13,3",
+    "cpu": "i5-3470S",
+    "cpu_generation": "Ivy Bridge",
+    "discrete_gpu": null,
+    "initial_support": "12.2.0",
+    "last_supported_version": "19.99.99"
+  },
+  {
+    "name": "iMac14,1",
+    "cpu": "i5-4570R",
+    "cpu_generation": "Haswell",
+    "discrete_gpu": null,
+    "initial_support": "12.4.0",
+    "last_supported_version": "19.99.99"
+  },
+  {
+    "name": "iMac14,2",
+    "cpu": "i7-4771",
+    "cpu_generation": "Haswell",
+    "discrete_gpu": "NVIDIA GeForce GT 750M",
+    "initial_support": "12.4.0",
+    "last_supported_version": "19.99.99"
+  },
+  {
+    "name": "iMac14,3",
+    "cpu": "i5-4570S",
+    "cpu_generation": "Haswell",
+    "discrete_gpu": "NVIDIA GeForce GT 755M",
+    "initial_support": "12.4.0",
+    "last_supported_version": "19.99.99"
+  },
+  {
+    "name": "iMac14,4",
+    "cpu": "i5-4260U",
+    "cpu_generation": "Haswell",
+    "discrete_gpu": null,
+    "initial_support": "13.2.0",
+    "last_supported_version": "20.99.99"
+  },
+  {
+    "name": "iMac15,1",
+    "cpu": "i7-4790K",
+    "cpu_generation": "Haswell",
+    "discrete_gpu": "AMD Radeon R9 M290X",
+    "initial_support": "14.0.0",
+    "last_supported_version": "20.99.99"
+  },
+  {
+    "name": "iMac16,1",
+    "cpu": "i5-5250U",
+    "cpu_generation": "Broadwell",
+    "discrete_gpu": null,
+    "initial_support": "15.0.0",
+    "last_supported_version": "21.99.99"
+  },
+  {
+    "name": "iMac16,2",
+    "cpu": "i5-5675R",
+    "cpu_generation": "Broadwell",
+    "discrete_gpu": null,
+    "initial_support": "15.0.0",
+    "last_supported_version": "21.99.99"
+  },
+  {
+    "name": "iMac17,1",
+    "cpu": "i5-6500",
+    "cpu_generation": "Skylake",
+    "discrete_gpu": "AMD Radeon R9 M380",
+    "initial_support": "15.0.0",
+    "last_supported_version": "21.99.99"
+  },
+  {
+    "name": "iMac18,1",
+    "cpu": "i5-7360U",
+    "cpu_generation": "Kaby Lake",
+    "discrete_gpu": null,
+    "initial_support": "16.5.0",
+    "last_supported_version": "22.99.99"
+  },
+  {
+    "name": "iMac18,2",
+    "cpu": "i5-7400",
+    "cpu_generation": "Kaby Lake",
+    "discrete_gpu": "AMD Radeon Pro 555",
+    "initial_support": "16.5.0",
+    "last_supported_version": "22.99.99"
+  },
+  {
+    "name": "iMac18,3",
+    "cpu": "i5-7600K",
+    "cpu_generation": "Kaby Lake",
+    "discrete_gpu": "AMD Radeon Pro 570",
+    "initial_support": "16.5.0",
+    "last_supported_version": "22.99.99"
+  },
+  {
+    "name": "iMac19,1",
+    "cpu": "i9-9900K",
+    "cpu_generation": "Coffee Lake",
+    "discrete_gpu": "AMD Radeon Pro 570X",
+    "initial_support": "18.5.0",
+    "last_supported_version": "24.99.99"
+  },
+  {
+    "name": "iMac19,2",
+    "cpu": "i5-8500",
+    "cpu_generation": "Coffee Lake",
+    "discrete_gpu": "AMD Radeon Pro 555X",
+    "initial_support": "18.5.0",
+    "last_supported_version": "24.99.99"
+  },
+  {
+    "name": "iMac20,1",
+    "cpu": "i5-10500",
+    "cpu_generation": "Comet Lake",
+    "discrete_gpu": "AMD Radeon Pro 5300",
+    "initial_support": "19.6.0",
+    "last_supported_version": "25.99.99"
+  },
+  {
+    "name": "iMac20,2",
+    "cpu": "i9-10910",
+    "cpu_generation": "Comet Lake",
+    "discrete_gpu": "AMD Radeon Pro 5300",
+    "initial_support": "19.6.0",
+    "last_supported_version": "25.99.99"
+  },
+  {
+    "name": "MacBook8,1",
+    "cpu": "M-5Y51",
+    "cpu_generation": "Broadwell",
+    "discrete_gpu": null,
+    "initial_support": "14.1.0",
+    "last_supported_version": "20.99.99"
+  },
+  {
+    "name": "MacBook9,1",
+    "cpu": "m3-6Y30",
+    "cpu_generation": "Skylake",
+    "discrete_gpu": null,
+    "initial_support": "15.4.0",
+    "last_supported_version": "21.99.99"
+  },
+  {
+    "name": "MacBook10,1",
+    "cpu": "m3-7Y32",
+    "cpu_generation": "Kaby Lake",
+    "discrete_gpu": null,
+    "initial_support": "16.6.0",
+    "last_supported_version": "22.99.99"
+  },
+  {
+    "name": "MacBookAir4,1",
+    "cpu": "i5-2467M",
+    "cpu_generation": "Sandy Bridge",
+    "discrete_gpu": null,
+    "initial_support": "11.0.0",
+    "last_supported_version": "17.99.99"
+  },
+  {
+    "name": "MacBookAir4,2",
+    "cpu": "i5-2557M",
+    "cpu_generation": "Sandy Bridge",
+    "discrete_gpu": null,
+    "initial_support": "11.0.0",
+    "last_supported_version": "17.99.99"
+  },
+  {
+    "name": "MacBookAir5,1",
+    "cpu": "i5-3317U",
+    "cpu_generation": "Ivy Bridge",
+    "discrete_gpu": null,
+    "initial_support": "11.4.0",
+    "last_supported_version": "19.99.99"
+  },
+  {
+    "name": "MacBookAir5,2",
+    "cpu": "i5-3317U",
+    "cpu_generation": "Ivy Bridge",
+    "discrete_gpu": null,
+    "initial_support": "12.2.0",
+    "last_supported_version": "19.99.99"
+  },
+  {
+    "name": "MacBookAir6,1",
+    "cpu": "i5-4250U",
+    "cpu_generation": "Haswell",
+    "discrete_gpu": null,
+    "initial_support": "12.4.0",
+    "last_supported_version": "20.99.99"
+  },
+  {
+    "name": "MacBookAir6,2",
+    "cpu": "i5-4250U",
+    "cpu_generation": "Haswell",
+    "discrete_gpu": null,
+    "initial_support": "12.4.0",
+    "last_supported_version": "20.99.99"
+  },
+  {
+    "name": "MacBookAir7,1",
+    "cpu": "i5-5250U",
+    "cpu_generation": "Broadwell",
+    "discrete_gpu": null,
+    "initial_support": "14.1.0",
+    "last_supported_version": "21.99.99"
+  },
+  {
+    "name": "MacBookAir7,2",
+    "cpu": "i5-5250U",
+    "cpu_generation": "Broadwell",
+    "discrete_gpu": null,
+    "initial_support": "14.1.0",
+    "last_supported_version": "21.99.99"
+  },
+  {
+    "name": "MacBookAir8,1",
+    "cpu": "i5-8210Y",
+    "cpu_generation": "Amber Lake",
+    "discrete_gpu": null,
+    "initial_support": "18.2.0",
+    "last_supported_version": "24.99.99"
+  },
+  {
+    "name": "MacBookAir8,2",
+    "cpu": "i5-8210Y",
+    "cpu_generation": "Amber Lake",
+    "discrete_gpu": null,
+    "initial_support": "18.6.0",
+    "last_supported_version": "24.99.99"
+  },
+  {
+    "name": "MacBookAir9,1",
+    "cpu": "i3-1000NG4",
+    "cpu_generation": "Ice Lake",
+    "discrete_gpu": null,
+    "initial_support": "19.4.0",
+    "last_supported_version": "24.99.99"
+  },
+  {
+    "name": "MacBookPro6,1",
+    "cpu": "i7-640M",
+    "cpu_generation": "Arrandale",
+    "discrete_gpu": "NVIDIA GeForce GT 330M",
+    "initial_support": "10.3.0",
+    "last_supported_version": "17.99.99"
+  },
+  {
+    "name": "MacBookPro6,2",
+    "cpu": "i7-640M",
+    "cpu_generation": "Arrandale",
+    "discrete_gpu": "NVIDIA GeForce GT 330M",
+    "initial_support": "10.3.0",
+    "last_supported_version": "17.99.99"
+  },
+  {
+    "name": "MacBookPro8,1",
+    "cpu": "i5-2415M",
+    "cpu_generation": "Sandy Bridge",
+    "discrete_gpu": null,
+    "initial_support": "10.6.0",
+    "last_supported_version": "17.99.99"
+  },
+  {
+    "name": "MacBookPro8,2",
+    "cpu": "i7-2675QM",
+    "cpu_generation": "Sandy Bridge",
+    "discrete_gpu": "AMD Radeon HD 6490M",
+    "initial_support": "10.6.0",
+    "last_supported_version": "17.99.99"
+  },
+  {
+    "name": "MacBookPro8,3",
+    "cpu": "i7-2820QM",
+    "cpu_generation": "Sandy Bridge",
+    "discrete_gpu": "AMD Radeon HD 6750M",
+    "initial_support": "10.6.0",
+    "last_supported_version": "17.99.99"
+  },
+  {
+    "name": "MacBookPro9,1",
+    "cpu": "i7-3615QM",
+    "cpu_generation": "Ivy Bridge",
+    "discrete_gpu": "NVIDIA GeForce GT 650M",
+    "initial_support": "11.3.0",
+    "last_supported_version": "19.99.99"
+  },
+  {
+    "name": "MacBookPro9,2",
+    "cpu": "i5-3210M",
+    "cpu_generation": "Ivy Bridge",
+    "discrete_gpu": null,
+    "initial_support": "11.3.0",
+    "last_supported_version": "19.99.99"
+  },
+  {
+    "name": "MacBookPro10,1",
+    "cpu": "i7-3615QM",
+    "cpu_generation": "Ivy Bridge",
+    "discrete_gpu": "NVIDIA GeForce GT 650M",
+    "initial_support": "11.4.0",
+    "last_supported_version": "19.99.99"
+  },
+  {
+    "name": "MacBookPro10,2",
+    "cpu": "i5-3210M",
+    "cpu_generation": "Ivy Bridge",
+    "discrete_gpu": null,
+    "initial_support": "12.2.0",
+    "last_supported_version": "19.99.99"
+  },
+  {
+    "name": "MacBookPro11,1",
+    "cpu": "i5-4258U",
+    "cpu_generation": "Haswell",
+    "discrete_gpu": null,
+    "initial_support": "13.0.0",
+    "last_supported_version": "20.99.99"
+  },
+  {
+    "name": "MacBookPro11,2",
+    "cpu": "i7-4770HQ",
+    "cpu_generation": "Haswell",
+    "discrete_gpu": null,
+    "initial_support": "13.0.0",
+    "last_supported_version": "20.99.99"
+  },
+  {
+    "name": "MacBookPro11,3",
+    "cpu": "i7-4850HQ",
+    "cpu_generation": "Haswell",
+    "discrete_gpu": "NVIDIA GeForce GT 750M",
+    "initial_support": "13.0.0",
+    "last_supported_version": "20.99.99"
+  },
+  {
+    "name": "MacBookPro11,4",
+    "cpu": "i7-4770HQ",
+    "cpu_generation": "Haswell",
+    "discrete_gpu": null,
+    "initial_support": "14.3.0",
+    "last_supported_version": "21.99.99"
+  },
+  {
+    "name": "MacBookPro11,5",
+    "cpu": "i7-4870HQ",
+    "cpu_generation": "Haswell",
+    "discrete_gpu": "AMD Radeon R9 M370X",
+    "initial_support": "14.3.0",
+    "last_supported_version": "21.99.99"
+  },
+  {
+    "name": "MacBookPro12,1",
+    "cpu": "i5-5257U",
+    "cpu_generation": "Broadwell",
+    "discrete_gpu": null,
+    "initial_support": "14.1.0",
+    "last_supported_version": "21.99.99"
+  },
+  {
+    "name": "MacBookPro13,1",
+    "cpu": "i5-6360U",
+    "cpu_generation": "Skylake",
+    "discrete_gpu": null,
+    "initial_support": "16.0.0",
+    "last_supported_version": "21.99.99"
+  },
+  {
+    "name": "MacBookPro13,2",
+    "cpu": "i7-6567U",
+    "cpu_generation": "Skylake",
+    "discrete_gpu": null,
+    "initial_support": "16.1.0",
+    "last_supported_version": "21.99.99"
+  },
+  {
+    "name": "MacBookPro13,3",
+    "cpu": "i7-6700HQ",
+    "cpu_generation": "Skylake",
+    "discrete_gpu": "AMD Radeon Pro 450",
+    "initial_support": "16.1.0",
+    "last_supported_version": "21.99.99"
+  },
+  {
+    "name": "MacBookPro14,1",
+    "cpu": "i5-7360U",
+    "cpu_generation": "Kaby Lake",
+    "discrete_gpu": null,
+    "initial_support": "16.6.0",
+    "last_supported_version": "22.99.99"
+  },
+  {
+    "name": "MacBookPro14,2",
+    "cpu": "i5-7267U",
+    "cpu_generation": "Kaby Lake",
+    "discrete_gpu": null,
+    "initial_support": "16.6.0",
+    "last_supported_version": "22.99.99"
+  },
+  {
+    "name": "MacBookPro14,3",
+    "cpu": "i7-7700HQ",
+    "cpu_generation": "Kaby Lake",
+    "discrete_gpu": "AMD Radeon Pro 555",
+    "initial_support": "16.6.0",
+    "last_supported_version": "22.99.99"
+  },
+  {
+    "name": "MacBookPro15,1",
+    "cpu": "i7-8750H",
+    "cpu_generation": "Coffee Lake",
+    "discrete_gpu": "AMD Radeon Pro 555X",
+    "initial_support": "17.99.99",
+    "last_supported_version": "24.99.99"
+  },
+  {
+    "name": "MacBookPro15,2",
+    "cpu": "i7-8559U",
+    "cpu_generation": "Coffee Lake",
+    "discrete_gpu": null,
+    "initial_support": "17.99.99",
+    "last_supported_version": "24.99.99"
+  },
+  {
+    "name": "MacBookPro15,3",
+    "cpu": "i7-8850H",
+    "cpu_generation": "Coffee Lake",
+    "discrete_gpu": "AMD Radeon Pro Vega 16",
+    "initial_support": "18.2.0",
+    "last_supported_version": "24.99.99"
+  },
+  {
+    "name": "MacBookPro15,4",
+    "cpu": "i5-8257U",
+    "cpu_generation": "Coffee Lake",
+    "discrete_gpu": null,
+    "initial_support": "18.6.0",
+    "last_supported_version": "24.99.99"
+  },
+  {
+    "name": "MacBookPro16,1",
+    "cpu": "i7-9750H",
+    "cpu_generation": "Coffee Lake",
+    "discrete_gpu": "AMD Radeon Pro 5300",
+    "initial_support": "19.0.0",
+    "last_supported_version": "25.99.99"
+  },
+  {
+    "name": "MacBookPro16,2",
+    "cpu": "i5-1038NG7",
+    "cpu_generation": "Ice Lake",
+    "discrete_gpu": null,
+    "initial_support": "19.4.0",
+    "last_supported_version": "25.99.99"
+  },
+  {
+    "name": "MacBookPro16,3",
+    "cpu": "i5-8257U",
+    "cpu_generation": "Coffee Lake",
+    "discrete_gpu": null,
+    "initial_support": "19.4.0",
+    "last_supported_version": "24.99.99"
+  },
+  {
+    "name": "MacBookPro16,4",
+    "cpu": "i7-9750H",
+    "cpu_generation": "Coffee Lake",
+    "discrete_gpu": "AMD Radeon Pro 5600M",
+    "initial_support": "19.0.0",
+    "last_supported_version": "25.99.99"
+  },
+  {
+    "name": "Macmini5,1",
+    "cpu": "i5-2415M",
+    "cpu_generation": "Sandy Bridge",
+    "discrete_gpu": null,
+    "initial_support": "11.0.0",
+    "last_supported_version": "17.99.99"
+  },
+  {
+    "name": "Macmini5,2",
+    "cpu": "i5-2520M",
+    "cpu_generation": "Sandy Bridge",
+    "discrete_gpu": null,
+    "initial_support": "11.0.0",
+    "last_supported_version": "17.99.99"
+  },
+  {
+    "name": "Macmini5,3",
+    "cpu": "i7-2635QM",
+    "cpu_generation": "Sandy Bridge",
+    "discrete_gpu": null,
+    "initial_support": "11.0.0",
+    "last_supported_version": "17.99.99"
+  },
+  {
+    "name": "Macmini6,1",
+    "cpu": "i5-3210M",
+    "cpu_generation": "Ivy Bridge",
+    "discrete_gpu": null,
+    "initial_support": "10.8.1",
+    "last_supported_version": "19.99.99"
+  },
+  {
+    "name": "Macmini6,2",
+    "cpu": "i7-3615QM",
+    "cpu_generation": "Ivy Bridge",
+    "discrete_gpu": null,
+    "initial_support": "10.8.1",
+    "last_supported_version": "19.99.99"
+  },
+  {
+    "name": "Macmini7,1",
+    "cpu": "i5-4260U",
+    "cpu_generation": "Haswell",
+    "discrete_gpu": null,
+    "initial_support": "14.0.0",
+    "last_supported_version": "21.99.99"
+  },
+  {
+    "name": "Macmini8,1",
+    "cpu": "i7-8700B",
+    "cpu_generation": "Coffee Lake",
+    "discrete_gpu": null,
+    "initial_support": "18.0.0",
+    "last_supported_version": "24.99.99"
+  },
+  {
+    "name": "iMacPro1,1",
+    "cpu": "W-2140B",
+    "cpu_generation": "Skylake-W",
+    "discrete_gpu": "AMD Radeon RX Vega 56",
+    "initial_support": "17.3.0",
+    "last_supported_version": "24.99.99"
+  },
+  {
+    "name": "MacPro5,1",
+    "cpu": "X5675 x2",
+    "cpu_generation": "Nehalem/Westmere",
+    "discrete_gpu": "ATI Radeon HD 5770",
+    "initial_support": "10.4.0",
+    "last_supported_version": "18.99.99"
+  },
+  {
+    "name": "MacPro6,1",
+    "cpu": "E5-1620 v2",
+    "cpu_generation": "Ivy Bridge EP",
+    "discrete_gpu": "AMD FirePro D300",
+    "initial_support": "13.0.0",
+    "last_supported_version": "21.99.99"
+  },
+  {
+    "name": "MacPro7,1",
+    "cpu": "W-3245M",
+    "cpu_generation": "Cascade Lake-W",
+    "discrete_gpu": "AMD Radeon Pro 580X",
+    "initial_support": "19.0.0",
+    "last_supported_version": "25.99.99"
+  }
+]

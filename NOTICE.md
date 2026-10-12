@@ -79,3 +79,11 @@ branding and does not display the upstream moth logo.
 ## Linux scanner adaptations
 
 `p1401/linux_scan.py` wraps the unchanged pinned Hardware Sniffer: physical CPU topology, PCI graphics fallback, resilient section collection, readable scan diagnostics, DRM connector parsing and binary EFI SecureBoot variables. `p1401/report.py` extends the validator instance to preserve an unknown Secure Boot state and accepts omitted empty Network / USB groups. It never substitutes missing CPU, GPU or disk observations with supported hardware.
+
+## Ferrite Rust migration
+
+`crates/ferrite-core/data/pci-rules.json` derives from the pinned OpCore-Simplify PCI and audio codec datasets. `gpu-ranges.json` derives from Hardware-Sniffer's GPUIdentifier, preserving ordered identification results over all 16-bit device IDs. Both upstreams retain their BSD-3-Clause notices in their respective `upstream/*/LICENSE` files. Rust compatibility logic is adapted from the pinned compatibility checker; the original copyright/license notices remain applicable. `nvidia-gsp.json` preserves the existing 1401 NVIDIA table and its source/tested metadata. `tools/ferrite/export_rules.py` reproduces the exports and is not part of the runtime.
+
+Ferrite is an independent name for this fork. The new code remains under the repository's PolyForm Noncommercial 1.0.0 license. It does not claim ownership of third-party datasets or NullMoth branding.
+
+Ferrite 0.2 additionally exports the pinned kext catalog, codec layouts, CPU identifiers and model/platform tables into Rust JSON data. Selection/configuration rules adapt the pinned OpCore-Simplify/1401 implementations. The Rust Apple recovery implementation preserves the Apple firmware verification public key and protocol from the existing recovery code; the public key is verification data, not a decryption key. Downloaded OpenCore/kext/Apple artifacts retain their own licenses and are not bundled in this source archive. Rust dependencies are pinned in Cargo.lock and retain their own license terms.

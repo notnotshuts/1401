@@ -1,0 +1,97 @@
+name: Ferrite Rust
+on:
+  push:
+    branches: [main, 'ferrite/**']
+    paths: ['Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', 'crates/**', 'tools/macos/**', '.github/workflows/ferrite.yml']
+  pull_request:
+    paths: ['Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', 'crates/**', 'tools/macos/**', '.github/workflows/ferrite.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ferrite-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2022]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.99.0
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Linux GUI dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y pkg-config libx11-dev libxi-dev libxcursor-dev libxrandr-dev libxinerama-dev libwayland-dev libxkbcommon-dev libgl1-mesa-dev acpica-tools
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - run: cargo test --workspace --locked
+      - run: cargo build --release --workspace --locked
+      - name: Linux binaries
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ferrite-linux-x86_64-preview
+          path: |
+            target/release/ferrite
+            target/release/ferrite-cli
+            LICENSE
+            NOTICE.md
+            upstream/OpCore-Simplify/LICENSE
+            upstream/Hardware-Sniffer/LICENSE
+      - name: Windows binaries
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ferrite-windows-x86_64-preview
+          path: |
+            target/release/ferrite.exe
+            target/release/ferrite-cli.exe
+            LICENSE
+            NOTICE.md
+            upstream/OpCore-Simplify/LICENSE
+            upstream/Hardware-Sniffer/LICENSE
+  macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            target: aarch64-apple-darwin
+          - os: macos-15-intel
+            target: x86_64-apple-darwin
+    runs-on: ${{ matrix.os }}
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '12.0'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.99.0
+          components: rustfmt, clippy
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - run: cargo test --workspace --locked
+      - run: cargo build --release --workspace --locked --target ${{ matrix.target }}
+      - name: Validate native macOS adapters
+        run: |
+          target/${{ matrix.target }}/release/ferrite-cli snapshot "$RUNNER_TEMP/ferrite-scan"
+          target/${{ matrix.target }}/release/ferrite-cli disks
+      - name: Build and verify app bundle and DMG
+        run: python3 tools/macos/package.py --target ${{ matrix.target }} --skip-build
+      - name: Verify CLI inside app bundle
+        run: |
+          arch="${{ matrix.target }}"
+          arch="${arch%%-*}"
+          "dist/macos/$arch/Ferrite.app/Contents/MacOS/ferrite-cli" --language en guide "$RUNNER_TEMP/Guide-en.md"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ferrite-macos-${{ matrix.target }}-preview
+          path: dist/macos/**/*.dmg

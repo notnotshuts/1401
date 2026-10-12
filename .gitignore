@@ -12,3 +12,5 @@ out/
 # dev environment + Rust build output
 .venv/
 loader/target/
+
+/target/

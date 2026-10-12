@@ -1,0 +1,1508 @@
+{
+  "8086": [
+    {
+      "start": 0,
+      "end": 65,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 66,
+      "end": 66,
+      "codename": "Iron Lake",
+      "device_type": "Integrated GPU"
+    },
+    {
+      "start": 67,
+      "end": 69,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 70,
+      "end": 70,
+      "codename": "Iron Lake",
+      "device_type": "Integrated GPU"
+    },
+    {
+      "start": 71,
+      "end": 255,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 256,
+      "end": 335,
+      "codename": "Sandy Bridge",
+      "device_type": "Integrated GPU"
+    },
+    {
+      "start": 336,
+      "end": 367,
+      "codename": "Ivy Bridge",
+      "device_type": "Integrated GPU"
+    },
+    {
+      "start": 368,
+      "end": 511,
+      "codename": "Sandy Bridge",
+      "device_type": "Integrated GPU"
+    },
+    {
+      "start": 512,
+      "end": 1023,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 1024,
+      "end": 1279,
+      "codename": "Haswell",
+      "device_type": "Integrated GPU"
+    },
+    {
+      "start": 1280,
+      "end": 2303,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 2304,
+      "end": 2559,
+      "codename": "Skylake",
+      "device_type": "Integrated GPU"
+    },
+    {
+      "start": 2560,
+      "end": 2815,
+      "codename": "Haswell",
+      "device_type": "Integrated GPU"
+    },
+    {
+      "start": 2816,
+      "end": 3071,
+      "codename": "Broadwell",
+      "device_type": "Integrated GPU"
+    },
+    {
+      "start": 3072,
+      "end": 3583,
+      "codename": "Haswell",
+      "device_type": "Integrated GPU"
+    },
+    {
+      "start": 3584,
+      "end": 5631,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 5632,
+      "end": 5887,
+      "codename": "Broadwell",
+      "device_type": "Integrated GPU"
+    },
+    {
+      "start": 5888,
+      "end": 6399,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 6400,
+      "end": 6655,
+      "codename": "Skylake",
+      "device_type": "Integrated GPU"
+    },
+    {
+      "start": 6656,
+      "end": 6911,
+      "codename": "Apollo Lake",
+      "device_type": "Integrated GPU"
+    },
+    {
+      "start": 6912,
+      "end": 12543,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 12544,
+      "end": 12799,
+      "codename": "Gemini Lake",
+      "device_type": "Integrated GPU"
+    },
+    {
+      "start": 12800,
+      "end": 15871,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 15872,
+      "end": 16127,
+      "codename": "Coffee Lake",
+      "device_type": "Integrated GPU"
+    },
+    {
+      "start": 16128,
+      "end": 17663,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 17664,
+      "end": 17919,
+      "codename": "Elkhart Lake",
+      "device_type": "Integrated GPU"
+    },
+    {
+      "start": 17920,
+      "end": 17951,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 17952,
+      "end": 17967,
+      "codename": "Alder Lake-P",
+      "device_type": "Integrated GPU"
+    },
+    {
+      "start": 17968,
+      "end": 18047,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 18048,
+      "end": 18079,
+      "codename": "Alder Lake-S",
+      "device_type": "Integrated GPU"
+    },
+    {
+      "start": 18080,
+      "end": 18095,
+      "codename": "Alder Lake-P",
+      "device_type": "Integrated GPU"
+    },
+    {
+      "start": 18096,
+      "end": 18127,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 18128,
+      "end": 18143,
+      "codename": "Alder Lake-N",
+      "device_type": "Integrated GPU"
+    },
+    {
+      "start": 18144,
+      "end": 18687,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 18688,
+      "end": 18943,
+      "codename": "DG1",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 18944,
+      "end": 19455,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 19456,
+      "end": 19711,
+      "codename": "Rocket Lake",
+      "device_type": "Integrated GPU"
+    },
+    {
+      "start": 19712,
+      "end": 19967,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 19968,
+      "end": 20223,
+      "codename": "Jasper Lake",
+      "device_type": "Integrated GPU"
+    },
+    {
+      "start": 20224,
+      "end": 22015,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 22016,
+      "end": 22271,
+      "codename": "Alchemist",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 22272,
+      "end": 22783,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 22784,
+      "end": 23039,
+      "codename": "Kaby Lake",
+      "device_type": "Integrated GPU"
+    },
+    {
+      "start": 23040,
+      "end": 23295,
+      "codename": "Apollo Lake",
+      "device_type": "Integrated GPU"
+    },
+    {
+      "start": 23296,
+      "end": 31999,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 32000,
+      "end": 32255,
+      "codename": "Meteor Lake",
+      "device_type": "Integrated GPU"
+    },
+    {
+      "start": 32256,
+      "end": 34559,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 34560,
+      "end": 34751,
+      "codename": "Coffee Lake",
+      "device_type": "Integrated GPU"
+    },
+    {
+      "start": 34752,
+      "end": 34752,
+      "codename": "Kaby Lake",
+      "device_type": "Integrated GPU"
+    },
+    {
+      "start": 34753,
+      "end": 34815,
+      "codename": "Coffee Lake",
+      "device_type": "Integrated GPU"
+    },
+    {
+      "start": 34816,
+      "end": 35327,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 35328,
+      "end": 35583,
+      "codename": "Ice Lake",
+      "device_type": "Integrated GPU"
+    },
+    {
+      "start": 35584,
+      "end": 39423,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 39424,
+      "end": 39679,
+      "codename": "Tiger Lake",
+      "device_type": "Integrated GPU"
+    },
+    {
+      "start": 39680,
+      "end": 39935,
+      "codename": "Coffee Lake",
+      "device_type": "Integrated GPU"
+    },
+    {
+      "start": 39936,
+      "end": 42751,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 42752,
+      "end": 42879,
+      "codename": "Raptor Lake-P",
+      "device_type": "Integrated GPU"
+    },
+    {
+      "start": 42880,
+      "end": 42895,
+      "codename": "Raptor Lake-S",
+      "device_type": "Integrated GPU"
+    },
+    {
+      "start": 42896,
+      "end": 43007,
+      "codename": "Raptor Lake-P",
+      "device_type": "Integrated GPU"
+    },
+    {
+      "start": 43008,
+      "end": 65535,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    }
+  ],
+  "1002": [
+    {
+      "start": 0,
+      "end": 5055,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 5056,
+      "end": 5056,
+      "codename": "Granite Ridge",
+      "device_type": "Integrated GPU"
+    },
+    {
+      "start": 5057,
+      "end": 5381,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 5382,
+      "end": 5382,
+      "codename": "Mendocino",
+      "device_type": "Integrated GPU"
+    },
+    {
+      "start": 5383,
+      "end": 5566,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 5567,
+      "end": 5567,
+      "codename": "Phoenix",
+      "device_type": "Integrated GPU"
+    },
+    {
+      "start": 5568,
+      "end": 5575,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 5576,
+      "end": 5576,
+      "codename": "Phoenix",
+      "device_type": "Integrated GPU"
+    },
+    {
+      "start": 5577,
+      "end": 5591,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 5592,
+      "end": 5592,
+      "codename": "Picasso",
+      "device_type": "Integrated GPU"
+    },
+    {
+      "start": 5593,
+      "end": 5596,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 5597,
+      "end": 5597,
+      "codename": "Raven Ridge",
+      "device_type": "Integrated GPU"
+    },
+    {
+      "start": 5598,
+      "end": 5606,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 5607,
+      "end": 5607,
+      "codename": "Barcelo",
+      "device_type": "Integrated GPU"
+    },
+    {
+      "start": 5608,
+      "end": 5685,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 5686,
+      "end": 5686,
+      "codename": "Renoir",
+      "device_type": "Integrated GPU"
+    },
+    {
+      "start": 5687,
+      "end": 5687,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 5688,
+      "end": 5688,
+      "codename": "Cezanne",
+      "device_type": "Integrated GPU"
+    },
+    {
+      "start": 5689,
+      "end": 5707,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 5708,
+      "end": 5708,
+      "codename": "Lucienne",
+      "device_type": "Integrated GPU"
+    },
+    {
+      "start": 5709,
+      "end": 5709,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 5710,
+      "end": 5710,
+      "codename": "Raphael",
+      "device_type": "Integrated GPU"
+    },
+    {
+      "start": 5711,
+      "end": 5760,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 5761,
+      "end": 5761,
+      "codename": "Rembrandt",
+      "device_type": "Integrated GPU"
+    },
+    {
+      "start": 5762,
+      "end": 6399,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 6400,
+      "end": 6400,
+      "codename": "Phoenix",
+      "device_type": "Integrated GPU"
+    },
+    {
+      "start": 6401,
+      "end": 26119,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 26120,
+      "end": 26121,
+      "codename": "Oland",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 26122,
+      "end": 26127,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 26128,
+      "end": 26143,
+      "codename": "Oland",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 26144,
+      "end": 26160,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 26161,
+      "end": 26161,
+      "codename": "Oland",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 26162,
+      "end": 26175,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 26176,
+      "end": 26177,
+      "codename": "Saturn",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 26178,
+      "end": 26182,
+      "codename": "Bonaire",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 26183,
+      "end": 26183,
+      "codename": "Saturn",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 26184,
+      "end": 26207,
+      "codename": "Bonaire",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 26208,
+      "end": 26271,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 26272,
+      "end": 26287,
+      "codename": "Vega 20",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 26288,
+      "end": 26367,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 26368,
+      "end": 26395,
+      "codename": "Cayman",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 26396,
+      "end": 26397,
+      "codename": "Antilles",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 26398,
+      "end": 26399,
+      "codename": "Cayman",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 26400,
+      "end": 26415,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 26416,
+      "end": 26431,
+      "codename": "Barts",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 26432,
+      "end": 26447,
+      "codename": "Turks",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 26448,
+      "end": 26448,
+      "codename": "Onega",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 26449,
+      "end": 26463,
+      "codename": "Turks",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 26464,
+      "end": 26479,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 26480,
+      "end": 26495,
+      "codename": "Caicos",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 26496,
+      "end": 26522,
+      "codename": "Tahiti",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 26523,
+      "end": 26523,
+      "codename": "Malta",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 26524,
+      "end": 26527,
+      "codename": "Tahiti",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 26528,
+      "end": 26552,
+      "codename": "Hawaii",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 26553,
+      "end": 26553,
+      "codename": "Vesuvius",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 26554,
+      "end": 26559,
+      "codename": "Hawaii",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 26560,
+      "end": 26591,
+      "codename": "Ellesmere",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 26592,
+      "end": 26623,
+      "codename": "Baffin",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 26624,
+      "end": 26639,
+      "codename": "Pitcairn",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 26640,
+      "end": 26641,
+      "codename": "Curacao",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 26642,
+      "end": 26655,
+      "codename": "Pitcairn",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 26656,
+      "end": 26663,
+      "codename": "Venus",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 26664,
+      "end": 26665,
+      "codename": "Cape Verde",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 26666,
+      "end": 26666,
+      "codename": "Venus",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 26667,
+      "end": 26667,
+      "codename": "Cape Verde",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 26668,
+      "end": 26671,
+      "codename": "Venus",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 26672,
+      "end": 26687,
+      "codename": "Cape Verde",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 26688,
+      "end": 26719,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 26720,
+      "end": 26751,
+      "codename": "Vega 10",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 26752,
+      "end": 26752,
+      "codename": "Lexington",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 26753,
+      "end": 26779,
+      "codename": "Cypress",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 26780,
+      "end": 26781,
+      "codename": "Hemlock",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 26782,
+      "end": 26783,
+      "codename": "Cypress",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 26784,
+      "end": 26815,
+      "codename": "Juniper",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 26816,
+      "end": 26847,
+      "codename": "Redwood",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 26848,
+      "end": 26855,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 26856,
+      "end": 26857,
+      "codename": "Cedar",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 26858,
+      "end": 26863,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 26864,
+      "end": 26879,
+      "codename": "Cedar",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 26880,
+      "end": 26886,
+      "codename": "Topaz",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 26887,
+      "end": 26887,
+      "codename": "Meso",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 26888,
+      "end": 26895,
+      "codename": "Topaz",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 26896,
+      "end": 26920,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 26921,
+      "end": 26921,
+      "codename": "Tonga",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 26922,
+      "end": 26922,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 26923,
+      "end": 26923,
+      "codename": "Tonga",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 26924,
+      "end": 26926,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 26927,
+      "end": 26943,
+      "codename": "Tonga",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 26944,
+      "end": 26959,
+      "codename": "Polaris 22",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 26960,
+      "end": 27007,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 27008,
+      "end": 27039,
+      "codename": "Lexa",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 27040,
+      "end": 27055,
+      "codename": "Vega 12",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 27056,
+      "end": 28638,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 28639,
+      "end": 28639,
+      "codename": "Polaris 20",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 28640,
+      "end": 29439,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 29440,
+      "end": 29455,
+      "codename": "Fiji",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 29456,
+      "end": 29471,
+      "codename": "Navi 10",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 29472,
+      "end": 29503,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 29504,
+      "end": 29519,
+      "codename": "Navi 14",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 29520,
+      "end": 29535,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 29536,
+      "end": 29551,
+      "codename": "Navi 12",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 29552,
+      "end": 29599,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 29600,
+      "end": 29631,
+      "codename": "Navi 21",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 29632,
+      "end": 29663,
+      "codename": "Navi 22",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 29664,
+      "end": 29679,
+      "codename": "Navi 23",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 29680,
+      "end": 29680,
+      "codename": "Navi 33",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 29681,
+      "end": 29694,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 29695,
+      "end": 29695,
+      "codename": "Navi 23",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 29696,
+      "end": 29727,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 29728,
+      "end": 29759,
+      "codename": "Navi 24",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 29760,
+      "end": 29791,
+      "codename": "Navi 31",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 29792,
+      "end": 29823,
+      "codename": "Navi 32",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 29824,
+      "end": 29855,
+      "codename": "Navi 33",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 29856,
+      "end": 37887,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 37888,
+      "end": 37903,
+      "codename": "R600",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 37904,
+      "end": 37951,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 37952,
+      "end": 37952,
+      "codename": "RV770",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 37953,
+      "end": 37953,
+      "codename": "R700",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 37954,
+      "end": 37954,
+      "codename": "RV770",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 37955,
+      "end": 37955,
+      "codename": "R700",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 37956,
+      "end": 37983,
+      "codename": "RV770",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 37984,
+      "end": 37993,
+      "codename": "RV790",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 37994,
+      "end": 37994,
+      "codename": "RV770",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 37995,
+      "end": 37999,
+      "codename": "RV790",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 38000,
+      "end": 38015,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 38016,
+      "end": 38047,
+      "codename": "RV730",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 38048,
+      "end": 38079,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 38080,
+      "end": 38095,
+      "codename": "RV610",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 38096,
+      "end": 38143,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 38144,
+      "end": 38158,
+      "codename": "RV670",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 38159,
+      "end": 38159,
+      "codename": "R680",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 38160,
+      "end": 38175,
+      "codename": "RV670",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 38176,
+      "end": 38207,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 38208,
+      "end": 38228,
+      "codename": "RV710",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 38229,
+      "end": 38229,
+      "codename": "RV711",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 38230,
+      "end": 38230,
+      "codename": "RV710",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 38231,
+      "end": 38231,
+      "codename": "RV711",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 38232,
+      "end": 38239,
+      "codename": "RV710",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 38240,
+      "end": 38271,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 38272,
+      "end": 38287,
+      "codename": "RV630",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 38288,
+      "end": 38303,
+      "codename": "RV635",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 38304,
+      "end": 38335,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    },
+    {
+      "start": 38336,
+      "end": 38351,
+      "codename": "RV620",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 38352,
+      "end": 65535,
+      "codename": "Unknown",
+      "device_type": "Unknown"
+    }
+  ],
+  "10DE": [
+    {
+      "start": 0,
+      "end": 1503,
+      "codename": "Unknown",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 1504,
+      "end": 1535,
+      "codename": "Tesla",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 1536,
+      "end": 1727,
+      "codename": "Unknown",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 1728,
+      "end": 1759,
+      "codename": "Fermi",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 1760,
+      "end": 2591,
+      "codename": "Unknown",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 2592,
+      "end": 2623,
+      "codename": "Tesla",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 2624,
+      "end": 2655,
+      "codename": "Unknown",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 2656,
+      "end": 2687,
+      "codename": "Tesla",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 2688,
+      "end": 3071,
+      "codename": "Unknown",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 3072,
+      "end": 3327,
+      "codename": "Tesla",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 3328,
+      "end": 3519,
+      "codename": "Unknown",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 3520,
+      "end": 3583,
+      "codename": "Fermi",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 3584,
+      "end": 3615,
+      "codename": "Unknown",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 3616,
+      "end": 3647,
+      "codename": "Fermi",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 3648,
+      "end": 3839,
+      "codename": "Unknown",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 3840,
+      "end": 3855,
+      "codename": "Fermi",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 3856,
+      "end": 4031,
+      "codename": "Unknown",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 4032,
+      "end": 4159,
+      "codename": "Kepler",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 4160,
+      "end": 4191,
+      "codename": "Fermi",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 4192,
+      "end": 4207,
+      "codename": "Unknown",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 4208,
+      "end": 4255,
+      "codename": "Fermi",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 4256,
+      "end": 4287,
+      "codename": "Unknown",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 4288,
+      "end": 4319,
+      "codename": "Tesla",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 4320,
+      "end": 4351,
+      "codename": "Unknown",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 4352,
+      "end": 4415,
+      "codename": "Kepler",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 4416,
+      "end": 4416,
+      "codename": "Fermi",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 4417,
+      "end": 4607,
+      "codename": "Kepler",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 4608,
+      "end": 4639,
+      "codename": "Fermi",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 4640,
+      "end": 4671,
+      "codename": "Unknown",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 4672,
+      "end": 4703,
+      "codename": "Fermi",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 4704,
+      "end": 4735,
+      "codename": "Unknown",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 4736,
+      "end": 4799,
+      "codename": "Kepler",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 4800,
+      "end": 4863,
+      "codename": "Unknown",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 4864,
+      "end": 4879,
+      "codename": "Kepler",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 4880,
+      "end": 5375,
+      "codename": "Maxwell",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 5376,
+      "end": 5631,
+      "codename": "Pascal",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 5632,
+      "end": 5919,
+      "codename": "Maxwell",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 5920,
+      "end": 5935,
+      "codename": "Pascal",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 5936,
+      "end": 6143,
+      "codename": "Maxwell",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 6144,
+      "end": 6911,
+      "codename": "Unknown",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 6912,
+      "end": 7455,
+      "codename": "Pascal",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 7456,
+      "end": 7471,
+      "codename": "Unknown",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 7472,
+      "end": 7487,
+      "codename": "Pascal",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 7488,
+      "end": 7503,
+      "codename": "Unknown",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 7504,
+      "end": 7519,
+      "codename": "Pascal",
+      "device_type": "Discrete GPU"
+    },
+    {
+      "start": 7520,
+      "end": 65535,
+      "codename": "Unknown",
+      "device_type": "Discrete GPU"
+    }
+  ]
+}

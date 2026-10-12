@@ -1,0 +1,21 @@
+[package]
+name = "ferrite-desktop"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "ferrite"
+path = "src/main.rs"
+
+[features]
+screenshot = ["eframe/__screenshot"]
+
+[dependencies]
+ferrite-core.workspace = true
+serde_json.workspace = true
+serde.workspace = true
+tempfile = "3"
+anyhow.workspace = true
+eframe = { version = "=0.32.3", default-features = false, features = ["default_fonts", "glow", "x11", "wayland", "accesskit"] }
+rfd = "0.15"
