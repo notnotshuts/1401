@@ -1,5 +1,5 @@
 //! Shared FAT32/MBR writer, guarded by platform-native disk identity and locks.
-#[cfg(any(target_os = "linux", target_os = "windows"))]
+#[cfg(any(target_os = "linux", target_os = "windows", target_os = "macos"))]
 use crate::disks;
 use crate::{builder::Build, disks::Disk, downloads, recovery};
 use anyhow::{Context, Result, bail};
@@ -330,19 +330,19 @@ pub fn disk(
     recovery: &Path,
     progress: &mut impl FnMut(&str, u64, u64),
 ) -> Result<Written> {
-    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
+    #[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
     {
         // Unsupported hosts must never validate payloads or open a physical disk.
         let _ = (selected, confirm, build, recovery, progress);
-        bail!("{}", crate::i18n::tr("mac.usb_image_only"));
+        bail!("USB writer is unsupported on this host");
     }
-    #[cfg(any(target_os = "linux", target_os = "windows"))]
+    #[cfg(any(target_os = "linux", target_os = "windows", target_os = "macos"))]
     {
         disk_supported(selected, confirm, build, recovery, progress)
     }
 }
 
-#[cfg(any(target_os = "linux", target_os = "windows"))]
+#[cfg(any(target_os = "linux", target_os = "windows", target_os = "macos"))]
 fn disk_supported(
     selected: &Disk,
     confirm: &str,
@@ -460,6 +460,20 @@ fn disk_supported(
         }
         Ok(result)
     }
+    #[cfg(target_os = "macos")]
+    {
+        let mut guard = crate::macos_disk::Guard::acquire(selected)?;
+        guard.recheck()?;
+        let mut result = write_payloads(guard.file(), selected.size, &payloads, progress)?;
+        result.device = selected.path.clone();
+        match guard.finish()? {
+            None => result
+                .notices
+                .push("USB безопасно извлечён. Для просмотра файлов подключите его снова.".into()),
+            Some(message) => result.notices.push(message),
+        }
+        Ok(result)
+    }
     #[cfg(target_os = "windows")]
     {
         let mut guard = crate::windows_disk::lock(selected)?;
@@ -498,6 +512,23 @@ pub fn image(
     result.device = output.display().to_string();
     Ok(result)
 }
+#[cfg(test)]
+#[cfg(target_os = "macos")]
+pub(crate) fn test_macos_payload(file: &mut File, size: u64, source: &Path) -> Result<Written> {
+    let data = fs::read(source)?;
+    write_payloads(
+        file,
+        size,
+        &[Payload {
+            path: "EFI/BOOT/BOOTx64.efi".into(),
+            source: source.into(),
+            size: data.len() as u64,
+            sha: format!("{:x}", Sha256::digest(&data)),
+        }],
+        &mut |_, _, _| {},
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

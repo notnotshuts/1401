@@ -285,6 +285,8 @@ impl App {
                             self.notice = tr("hardware.checked").into();
                         }
                         Message::Disks(disks) => {
+                            self.selected_disk = None;
+                            self.confirmation.clear();
                             self.disks = disks;
                             self.notice =
                                 tf("usb.found", &[("0", format!("{}", self.disks.len()))]);

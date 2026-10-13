@@ -175,14 +175,29 @@ fn execute() -> Result<bool> {
             result,
         } => {
             let d: disks::Disk = serde_json::from_slice(&std::fs::read(selection)?)?;
+            let result_file = result
+                .map(|path| {
+                    std::fs::OpenOptions::new()
+                        .write(true)
+                        .create_new(true)
+                        .open(path)
+                })
+                .transpose()?;
             let r = usb::disk(&d, &confirm, &build, &recovery, &mut |name, done, total| {
                 if done == total {
                     eprintln!("{name}: {done}/{total}");
                 }
             })?;
             let json = serde_json::to_vec_pretty(&r)?;
-            if let Some(path) = result {
-                std::fs::write(path, &json)?;
+            if let Some(mut file) = result_file {
+                use std::io::Write;
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::PermissionsExt;
+                    file.set_permissions(std::fs::Permissions::from_mode(0o644))?;
+                }
+                file.write_all(&json)?;
+                file.sync_all()?;
             }
             println!("{}", String::from_utf8(json)?);
             Ok(r.verified)

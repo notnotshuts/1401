@@ -83,6 +83,8 @@ jobs:
       - run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - run: cargo test --workspace --locked
       - run: cargo build --release --workspace --locked --target ${{ matrix.target }}
+      - name: Native USB write on owned virtual disk
+        run: python3 tools/macos/test_usb.py
       - name: Validate native macOS adapters
         run: |
           target/${{ matrix.target }}/release/ferrite-cli snapshot "$RUNNER_TEMP/ferrite-scan"
@@ -131,7 +133,7 @@ jobs:
           (root / 'SHA256SUMS').write_text(''.join(f'{hashlib.file_digest(p.open("rb"), "sha256").hexdigest()}  {p.name}\n' for p in files))
           sha = os.environ['GITHUB_SHA']
           repo = os.environ['GITHUB_REPOSITORY']
-          pathlib.Path('release-notes.md').write_text(f'Ferrite {version} preview.\n\nLinux/Windows: распакуйте архив и держите GUI и CLI рядом. macOS: откройте DMG и перенесите приложение в Applications.\n\n[Инструкции и ограничения](https://github.com/{repo}/blob/{sha}/README.md). Физическая запись USB на macOS отключена.\n\nСборки прошли fmt, строгий Clippy и Rust-тесты на Linux, Windows, macOS Intel и Apple Silicon. Загрузка macOS на физическом ПК этим не подтверждается.\n')
+          pathlib.Path('release-notes.md').write_text(f'Ferrite {version} preview.\n\nLinux/Windows: распакуйте архив и держите GUI и CLI рядом. macOS: откройте DMG и перенесите приложение в Applications.\n\n[Инструкции и ограничения](https://github.com/{repo}/blob/{sha}/README.md). macOS поддерживает прямую запись USB с системным запросом прав администратора. Нативная запись проверена на отдельном виртуальном диске; проверка физических флешек остаётся отдельным этапом.\n\nСборки прошли fmt, строгий Clippy и Rust-тесты на Linux, Windows, macOS Intel и Apple Silicon. Загрузка macOS на физическом ПК этим не подтверждается.\n')
           with open(os.environ['GITHUB_ENV'], 'a') as env:
               env.write(f'FERRITE_VERSION={version}\nFERRITE_TAG=ferrite-v{version}-{sha[:12]}\n')
           PY

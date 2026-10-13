@@ -99,7 +99,7 @@
   "action.download_recovery": "Скачать Apple Recovery",
   "recovery.verified": "Recovery проверен: {0} MiB · {1} блоков",
   "usb.erase_warning": "Все данные на выбранном USB будут удалены",
-  "usb.identity": "Накопитель: {0} · серийный номер {1}",
+  "usb.identity": "Накопитель: {0} · идентификатор {1}",
   "usb.confirm_hint": "Введите точный путь накопителя для подтверждения:",
   "action.write_usb": "Очистить, записать и проверить USB",
   "usb.cli_missing": "Не найден ferrite-cli рядом с приложением. Установите оба файла в одну папку.",
@@ -191,7 +191,6 @@
   "editor.report": "ОТЧЁТ",
   "editor.no_report": "Отчёт ещё не открыт",
   "editor.search_commands": "Найти страницу или действие…",
-  "mac.usb_image_only": "На macOS доступно создание файла образа. Прямая запись USB пока не поддерживается.",
   "mac.prepare_host": "На Mac можно подготовить EFI другого ПК. Импортируйте его Report.json и ACPI; Apple Silicon не является целью x86 OpenCore.",
   "build.plan_unavailable": "Не удалось подобрать конфигурацию. Проверьте ограничения оборудования и выбранную macOS."
 }

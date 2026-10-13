@@ -99,7 +99,7 @@
   "action.download_recovery": "Download Apple Recovery",
   "recovery.verified": "Recovery verified: {0} MiB · {1} blocks",
   "usb.erase_warning": "All data on the selected USB drive will be erased",
-  "usb.identity": "Drive: {0} · serial number {1}",
+  "usb.identity": "Drive: {0} · identity {1}",
   "usb.confirm_hint": "Enter the exact drive path to confirm:",
   "action.write_usb": "Erase, write and verify USB",
   "usb.cli_missing": "ferrite-cli was not found next to the app. Place both files in the same folder.",
@@ -191,7 +191,6 @@
   "editor.report": "REPORT",
   "editor.no_report": "No report open",
   "editor.search_commands": "Find a page or action…",
-  "mac.usb_image_only": "On macOS, create an image file. Direct USB writing is not supported yet.",
   "mac.prepare_host": "Use your Mac to prepare an EFI for another PC. Import its Report.json and ACPI; Apple Silicon is not an x86 OpenCore target.",
   "build.plan_unavailable": "A configuration could not be selected. Review hardware limitations and the selected macOS."
 }

@@ -99,7 +99,7 @@
   "action.download_recovery": "Descargar Apple Recovery",
   "recovery.verified": "Recovery verificado: {0} MiB · {1} bloques",
   "usb.erase_warning": "Se borrarán todos los datos del USB seleccionado",
-  "usb.identity": "Unidad: {0} · número de serie {1}",
+  "usb.identity": "Unidad: {0} · identidad {1}",
   "usb.confirm_hint": "Escribe la ruta exacta de la unidad para confirmar:",
   "action.write_usb": "Borrar, escribir y verificar USB",
   "usb.cli_missing": "No se encontró ferrite-cli junto a la aplicación. Coloca ambos archivos en la misma carpeta.",
@@ -191,7 +191,6 @@
   "editor.report": "INFORME",
   "editor.no_report": "No hay un informe abierto",
   "editor.search_commands": "Buscar una página o acción…",
-  "mac.usb_image_only": "En macOS puedes crear un archivo de imagen. La escritura directa en USB aún no está disponible.",
   "mac.prepare_host": "Usa tu Mac para preparar una EFI para otro PC. Importa su Report.json y ACPI; Apple Silicon no es un destino de OpenCore x86.",
   "build.plan_unavailable": "No se pudo elegir una configuración. Revisa las limitaciones del hardware y la versión de macOS elegida."
 }

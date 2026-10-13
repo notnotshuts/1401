@@ -22,10 +22,16 @@
 - macOS парсеры проверены на синтетических Intel PCI/Apple Silicon данных: endian PCI ID, обязательное различение ARM/x86, недопустимые disk identifiers, отсутствие/повреждение ACPI. Эти тесты не заменяют аппаратные отчёты настоящих Mac.
 - macserial и ocvalidate из SHA-256-проверенного OpenCore пакета имеют Mach-O universal header с CPU types 0x01000007 (Intel) и 0x0100000c (ARM64).
 - Python-упаковщик и CI YAML проверены синтаксически. Нативный macOS запуск, подпись .app и DMG в этой среде не выполнялись. Apple-target check из Linux остановился в ring/clang из-за отсутствия Apple SDK.
-- macOS физический writer отключён; создание файлов образов остаётся доступным. Windows/Linux операции не переписаны этим изменением.
+- В версии 0.4 физический writer macOS был отключён; создание файлов образов было доступно. Windows/Linux операции не переписаны этим изменением.
 
 ## Очистка структуры и CI
 
 После удаления legacy-реализаций выполнены локальные проверки на macOS Apple Silicon с Rust 1.99.0: `cargo fmt --all --check`, строгий Clippy для всех workspace targets и 48 Rust-тестов. Экспорт PCI/codec/GPU таблиц воспроизводит прежние JSON без изменений; SHA-256 исходников экспортера сверены с PINNED.json. Проверены локальные ссылки документации и состав Linux/Windows архивов на тестовых файлах, включая CLI и лицензии. Это не проверка физического USB.
 
 Workflow Ferrite проверяет обе desktop-платформы и обе архитектуры macOS; результат конкретного запуска нужно смотреть в GitHub Actions. При успешном push в main публикуется preview-релиз с четырьмя пакетами и SHA256SUMS.
+
+## Ferrite 0.5: прямая запись macOS
+
+Новый backend: IOKit connection identity, защита всех физических хранилищ корневого APFS, Disk Arbitration claim и запрет монтирования на время записи, проверка block-device geometry, FAT32/MBR и SHA-256 read-back, hardware-cache flush и безопасное извлечение. GUI запрашивает права через системный диалог AppleScript; аргументы передаются отдельно и экранируются `quoted form`.
+
+Обычные тесты проверяют опасные идентификаторы, неизвестное writable-состояние, APFS/Fusion physical stores и подмену структуры разделов. Отдельный root-only тест Actions создаёт собственный HDI-образ: production writer его отвергает; test-only route проверяет native claim, запрет второго claim/монтирования, запись и повторное подключение. Test-only route не компилируется в поставляемый CLI. Успех конкретного нативного теста нужно сверять с Actions; физическая флешка пользователя этим не тестируется.

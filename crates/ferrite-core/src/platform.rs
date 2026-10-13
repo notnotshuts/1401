@@ -26,7 +26,7 @@ pub const fn host_name() -> &'static str {
     }
 }
 pub const fn physical_usb_supported() -> bool {
-    matches!(host(), Host::Windows | Host::Linux)
+    matches!(host(), Host::Windows | Host::Linux | Host::MacOs)
 }
 pub fn utility_name(tool: &str, platform: Host) -> anyhow::Result<&'static str> {
     Ok(match (tool, platform) {

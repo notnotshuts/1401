@@ -29,3 +29,6 @@ pub mod guide;
 
 pub mod macos;
 pub mod platform;
+
+#[cfg(target_os = "macos")]
+pub mod macos_disk;

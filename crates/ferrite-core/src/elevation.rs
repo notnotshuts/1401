@@ -1,14 +1,14 @@
 //! Elevate only the CLI writer, never the GUI. Arguments are data, not shell code.
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 use anyhow::Context;
 use anyhow::Result;
-#[cfg(not(target_os = "linux"))]
+#[cfg(not(any(target_os = "linux", target_os = "macos")))]
 use anyhow::bail;
 use std::path::Path;
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 use std::time::Duration;
 pub fn write_helper(_cli: &Path, _args: &[String]) -> Result<()> {
-    #[cfg(any(target_os = "linux", target_os = "windows"))]
+    #[cfg(any(target_os = "linux", target_os = "windows", target_os = "macos"))]
     let (cli, args) = (_cli, _args);
     #[cfg(target_os = "linux")]
     {
@@ -73,10 +73,70 @@ pub fn write_helper(_cli: &Path, _args: &[String]) -> Result<()> {
         }
         Ok(())
     }
-    #[cfg(not(any(target_os = "windows", target_os = "linux")))]
+    #[cfg(target_os = "macos")]
     {
-        bail!("Elevation is supported only on Windows/Linux")
+        let cli = std::fs::canonicalize(cli).context("Missing CLI helper")?;
+        if !cli.is_file() {
+            anyhow::bail!("Missing CLI helper");
+        }
+        let mut argv = vec![
+            "-e",
+            MACOS_ADMIN_SCRIPT,
+            "--",
+            cli.to_str().context("CLI path must be UTF-8")?,
+        ];
+        argv.extend(args.iter().map(String::as_str));
+        crate::workspace::run_bounded("/usr/bin/osascript", &argv, Duration::from_secs(1800))
+            .context("macOS authorization cancelled or USB writer failed")?;
+        Ok(())
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
+    {
+        bail!("Elevation is supported only on Windows/Linux/macOS")
     }
 }
 #[cfg(target_os = "windows")]
 use std::os::windows::ffi::OsStrExt;
+
+#[cfg(target_os = "macos")]
+const MACOS_ADMIN_SCRIPT: &str = r#"on run argv
+    set commandText to ""
+    repeat with argument in argv
+        set commandText to commandText & quoted form of (argument as text) & " "
+    end repeat
+    with timeout of 1800 seconds
+        do shell script commandText with administrator privileges
+    end timeout
+end run"#;
+
+#[cfg(all(test, target_os = "macos"))]
+mod macos_tests {
+    use super::*;
+    #[test]
+    fn authorization_command_quotes_arguments_without_executing_them() {
+        let script = MACOS_ADMIN_SCRIPT.replace(
+            "do shell script commandText with administrator privileges",
+            "return commandText",
+        );
+        let arguments = [
+            "/Applications/Ferrite's app/ferrite-cli",
+            "a; echo injected",
+            "$(touch /tmp/ferrite-unwanted)",
+            "a\\\"b",
+            "line\nbreak",
+        ];
+        let mut argv = vec!["-e", script.as_str(), "--"];
+        argv.extend(arguments);
+        let result =
+            crate::workspace::run_bounded("/usr/bin/osascript", &argv, Duration::from_secs(15))
+                .unwrap();
+        let expected = arguments
+            .iter()
+            .map(|a| format!("'{}' ", a.replace('\'', "'\\''")))
+            .collect::<String>();
+        assert_eq!(
+            String::from_utf8(result).unwrap().trim_end_matches('\n'),
+            expected
+        );
+    }
+}

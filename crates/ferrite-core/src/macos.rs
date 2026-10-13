@@ -1,4 +1,4 @@
-//! Read-only macOS adapters. Parsers are host independent and tested on every platform.
+//! macOS inventory and hardware adapters; host-independent safety parsers run on every platform.
 use crate::{compatibility, disks::Disk, report::Report, workspace};
 use anyhow::{Context, Result, bail};
 use plist::Value as Plist;
@@ -195,11 +195,83 @@ pub fn parse_report(
     result["Scan Notes"] = json!(notes);
     Report::from_bytes(&serde_json::to_vec(&result)?)
 }
-fn valid_disk_id(id: &str) -> bool {
+pub(crate) fn valid_disk_id(id: &str) -> bool {
     id.strip_prefix("disk")
         .is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()))
 }
+#[derive(Clone, Debug)]
+pub struct MediaIdentity {
+    pub registry_id: u64,
+    pub usb: bool,
+    pub serial: String,
+}
+
+pub(crate) fn disk_path_id(path: &str) -> Result<&str> {
+    let id = path.strip_prefix("/dev/").context("Expected /dev/diskN")?;
+    if !valid_disk_id(id) {
+        bail!("Выберите весь накопитель /dev/diskN, а не раздел или raw/symlink путь");
+    }
+    Ok(id)
+}
+
+fn whole_id(id: &str) -> Result<String> {
+    let mut parts = id
+        .strip_prefix("disk")
+        .context("Disk identifier")?
+        .split('s');
+    let whole = format!("disk{}", parts.next().context("Disk identifier")?);
+    if !valid_disk_id(&whole)
+        || parts.any(|p| p.is_empty() || !p.bytes().all(|b| b.is_ascii_digit()))
+    {
+        bail!("Invalid disk identifier");
+    }
+    Ok(whole)
+}
+
+pub fn protected_disks(root: &Plist) -> Result<Vec<String>> {
+    let d = root.as_dictionary().context("Root disk metadata")?;
+    let mut ids = vec![whole_id(
+        d.get("ParentWholeDisk")
+            .and_then(Plist::as_string)
+            .context("Root whole disk is unknown")?,
+    )?];
+    if d.get("FilesystemType").and_then(Plist::as_string) == Some("apfs") {
+        let stores = d
+            .get("APFSPhysicalStores")
+            .and_then(Plist::as_array)
+            .context("Root APFS physical stores are unknown")?;
+        if stores.is_empty() {
+            bail!("Root APFS has no physical stores");
+        }
+        for store in stores {
+            let id = store
+                .as_dictionary()
+                .and_then(|x| x.get("APFSPhysicalStore"))
+                .and_then(Plist::as_string)
+                .context("Root APFS store is unknown")?;
+            ids.push(whole_id(id)?);
+        }
+    } else if !matches!(
+        d.get("FilesystemType").and_then(Plist::as_string),
+        Some("hfs" | "hfs+")
+    ) {
+        bail!("Unknown root filesystem; cannot authorize disk writes");
+    }
+    for key in ["BooterDeviceIdentifier", "RecoveryDeviceIdentifier"] {
+        if let Some(id) = d.get(key).and_then(Plist::as_string)
+            && !id.is_empty()
+        {
+            ids.push(whole_id(id)?);
+        }
+    }
+    ids.sort();
+    ids.dedup();
+    Ok(ids)
+}
+
 pub fn list_disks() -> Result<Vec<Disk>> {
+    let raw = command("/usr/sbin/diskutil", &["info", "-plist", "/"])?;
+    let protected = protected_disks(&Plist::from_reader(Cursor::new(raw))?)?;
     let raw = command("/usr/sbin/diskutil", &["list", "-plist", "physical"])?;
     let plist = Plist::from_reader(Cursor::new(raw))?;
     let rows = plist
@@ -209,23 +281,53 @@ pub fn list_disks() -> Result<Vec<Disk>> {
         .context("diskutil physical list")?;
     let mut result = vec![];
     for row in rows {
-        let Some(id) = row
-            .as_dictionary()
-            .and_then(|d| d.get("DeviceIdentifier"))
+        let d = row.as_dictionary().context("Disk layout")?;
+        let id = d
+            .get("DeviceIdentifier")
             .and_then(Plist::as_string)
-        else {
-            continue;
-        };
+            .context("Disk layout id")?;
         if !valid_disk_id(id) {
-            continue;
+            bail!("Physical inventory included a non-whole disk");
         }
         let raw = command("/usr/sbin/diskutil", &["info", "-plist", id])?;
         let info = Plist::from_reader(Cursor::new(raw))?;
-        result.push(describe_disk(&info)?);
+        let mut partitions = vec![];
+        if let Some(items) = d.get("Partitions").and_then(Plist::as_array) {
+            for part in items {
+                let pid = part
+                    .as_dictionary()
+                    .and_then(|p| p.get("DeviceIdentifier"))
+                    .and_then(Plist::as_string)
+                    .context("Partition id")?;
+                if whole_id(pid)? != id || pid == id {
+                    bail!("Partition changed parent");
+                }
+                let raw = command("/usr/sbin/diskutil", &["info", "-plist", pid])?;
+                partitions.push(Plist::from_reader(Cursor::new(raw))?);
+            }
+        }
+        #[cfg(target_os = "macos")]
+        let identity = crate::macos_disk::identity(id).ok();
+        #[cfg(not(target_os = "macos"))]
+        let identity = None;
+        result.push(classify_disk(
+            &info,
+            row,
+            &partitions,
+            &protected,
+            identity.as_ref(),
+        )?);
     }
     Ok(result)
 }
-pub fn describe_disk(info: &Plist) -> Result<Disk> {
+
+pub fn classify_disk(
+    info: &Plist,
+    layout: &Plist,
+    partitions: &[Plist],
+    protected: &[String],
+    identity: Option<&MediaIdentity>,
+) -> Result<Disk> {
     let d = info.as_dictionary().context("diskutil info dictionary")?;
     let s = |key: &str| d.get(key).and_then(Plist::as_string).unwrap_or("");
     let id = s("DeviceIdentifier");
@@ -240,21 +342,125 @@ pub fn describe_disk(info: &Plist) -> Result<Disk> {
         .get("DeviceBlockSize")
         .and_then(Plist::as_unsigned_integer)
         .unwrap_or(0);
-    let mut reasons = vec![crate::i18n::tr("mac.usb_image_only").into()];
+    let mut reasons = vec![];
     if d.get("Internal").and_then(Plist::as_boolean) != Some(false) {
         reasons.push("Internal or unknown disk".into());
     }
     if d.get("WholeDisk").and_then(Plist::as_boolean) != Some(true) {
         reasons.push("Not a confirmed whole disk".into());
     }
+    if s("BusProtocol") != "USB" || !identity.is_some_and(|i| i.usb) {
+        reasons.push("Not a confirmed physical USB device".into());
+    }
+    if d.get("Writable").and_then(Plist::as_boolean) != Some(true)
+        || d.get("WritableMedia").and_then(Plist::as_boolean) != Some(true)
+    {
+        reasons.push("Read-only or unknown writable state".into());
+    }
+    if d.get("Virtual").and_then(Plist::as_boolean) == Some(true)
+        || matches!(s("VirtualOrPhysical"), "Virtual")
+    {
+        reasons.push("Virtual disk cannot be erased by the USB writer".into());
+    }
+    if protected.iter().any(|x| x == id) {
+        reasons.push("System/boot/APFS physical store".into());
+    }
+    if !(8 * 1024 * 1024 * 1024..=128 * 1024 * 1024 * 1024).contains(&size) {
+        reasons.push("USB must be 8–128 GiB".into());
+    }
+    if sector != 512 {
+        reasons.push("USB logical sector must be 512 bytes".into());
+    }
+    if s("MediaName").is_empty() {
+        reasons.push("Unknown disk model".into());
+    }
+    if !identity.is_some_and(|i| i.registry_id != 0) {
+        reasons.push("IOKit identity unavailable".into());
+    }
+    let row = layout.as_dictionary().context("Physical layout")?;
+    if row.get("DeviceIdentifier").and_then(Plist::as_string) != Some(id) {
+        bail!("Layout identity changed");
+    }
+    if let Some(parts) = row.get("Partitions").and_then(Plist::as_array) {
+        if parts.len() != partitions.len() {
+            bail!("Partition inventory incomplete");
+        }
+        for (part, observed) in parts.iter().zip(partitions) {
+            let expected = part
+                .as_dictionary()
+                .and_then(|p| p.get("DeviceIdentifier"))
+                .and_then(Plist::as_string)
+                .context("Partition identity missing")?;
+            let observed = observed.as_dictionary().context("Partition info")?;
+            if whole_id(expected)? != id
+                || observed.get("DeviceIdentifier").and_then(Plist::as_string) != Some(expected)
+            {
+                bail!("Partition inventory changed");
+            }
+            if let Some(parent) = observed.get("ParentWholeDisk").and_then(Plist::as_string)
+                && parent != id
+            {
+                bail!("Partition changed parent");
+            }
+            let content = part
+                .as_dictionary()
+                .and_then(|p| p.get("Content"))
+                .and_then(Plist::as_string)
+                .unwrap_or("");
+            if [
+                "Apple_APFS",
+                "Apple_HFS",
+                "Apple_CoreStorage",
+                "Apple_Boot",
+                "Apple_APFS_ISC",
+                "Apple_APFS_Recovery",
+                "Linux Filesystem",
+                "Linux LVM",
+                "Linux RAID",
+                "Linux Swap",
+                "Windows_NTFS",
+                "Windows Recovery",
+            ]
+            .contains(&content)
+            {
+                reasons.push("OS, recovery, backup or encrypted partition".into());
+            }
+        }
+    }
+    for p in partitions.iter().chain([info]) {
+        let p = p.as_dictionary().context("Partition info")?;
+        if let Some(fs) = p.get("FilesystemType").and_then(Plist::as_string)
+            && !["msdos", "exfat"].contains(&fs.to_lowercase().as_str())
+        {
+            reasons.push("OS/unsupported filesystem".into());
+        }
+        if let Some(mount) = p.get("MountPoint").and_then(Plist::as_string)
+            && !mount.is_empty()
+            && !mount.starts_with("/Volumes/")
+        {
+            reasons.push("Protected mount point".into());
+        }
+    }
+    reasons.sort();
+    reasons.dedup();
     Ok(Disk {
         path: format!("/dev/{id}"),
         model: s("MediaName").into(),
-        serial: String::new(),
+        serial: identity
+            .map(|i| {
+                if i.serial.is_empty() {
+                    format!("connection:{}", i.registry_id)
+                } else {
+                    i.serial.clone()
+                }
+            })
+            .unwrap_or_default(),
         size,
         bus: s("BusProtocol").into(),
         reasons,
-        device_id: s("DeviceTreePath").into(),
+        device_id: identity
+            .map(|i| format!("ioreg:{}", i.registry_id))
+            .unwrap_or_default(),
         sector_size: u32::try_from(sector).unwrap_or(0),
     })
 }
@@ -334,7 +540,8 @@ mod tests {
         d.insert("DeviceIdentifier".into(), "disk4".into());
         d.insert("WholeDisk".into(), true.into());
         d.insert("Internal".into(), false.into());
-        let disk = describe_disk(&Plist::Dictionary(d)).unwrap();
+        let info = Plist::Dictionary(d);
+        let disk = classify_disk(&info, &info, &[], &[], None).unwrap();
         assert!(!disk.eligible());
         assert_eq!(disk.path, "/dev/disk4");
         assert!(!valid_disk_id("disk4s1"));
@@ -380,5 +587,92 @@ mod fixture_tests {
         let mut root = plist::Dictionary::new();
         root.insert("ACPI Tables".into(), Plist::Dictionary(tables));
         assert!(acpi_tables(&Plist::Dictionary(root)).is_err());
+    }
+
+    fn usb_info() -> Plist {
+        plist::to_value(&json!({"DeviceIdentifier":"disk4", "WholeDisk":true,
+            "Internal":false,"Writable":true,"WritableMedia":true,"BusProtocol":"USB",
+            "MediaName":"Test USB","TotalSize":17179869184u64,"DeviceBlockSize":512}))
+        .unwrap()
+    }
+    #[test]
+    fn mac_usb_requires_native_identity_and_known_writable_media() {
+        let info = usb_info();
+        let layout = plist::to_value(&json!({"DeviceIdentifier":"disk4","Partitions":[]})).unwrap();
+        let identity = MediaIdentity {
+            registry_id: 42,
+            usb: true,
+            serial: String::new(),
+        };
+        let allowed = classify_disk(&info, &layout, &[], &[], Some(&identity)).unwrap();
+        assert!(allowed.eligible(), "{:?}", allowed.reasons);
+        assert_eq!(allowed.serial, "connection:42");
+        assert!(
+            !classify_disk(&info, &layout, &[], &[], None)
+                .unwrap()
+                .eligible()
+        );
+        assert!(
+            !classify_disk(&info, &layout, &[], &["disk4".into()], Some(&identity))
+                .unwrap()
+                .eligible()
+        );
+        for key in ["Internal", "WholeDisk", "Writable", "WritableMedia"] {
+            let mut bad = info.clone();
+            bad.as_dictionary_mut().unwrap().remove(key);
+            assert!(
+                !classify_disk(&bad, &layout, &[], &[], Some(&identity))
+                    .unwrap()
+                    .eligible()
+            );
+        }
+        for path in [
+            "/dev/rdisk4",
+            "/dev/disk4s1",
+            "/dev/disk4/../disk0",
+            "/tmp/disk4",
+            "/dev/disk4;id",
+        ] {
+            assert!(disk_path_id(path).is_err());
+        }
+    }
+    #[test]
+    fn root_apfs_resolves_all_physical_stores_and_fails_closed() {
+        let root=plist::to_value(&json!({"ParentWholeDisk":"disk3","FilesystemType":"apfs",
+            "APFSPhysicalStores":[{"APFSPhysicalStore":"disk0s2"},{"APFSPhysicalStore":"disk1s2"}]})).unwrap();
+        assert_eq!(
+            protected_disks(&root).unwrap(),
+            vec!["disk0", "disk1", "disk3"]
+        );
+        let mut bad = root.clone();
+        bad.as_dictionary_mut()
+            .unwrap()
+            .remove("APFSPhysicalStores");
+        assert!(protected_disks(&bad).is_err());
+        assert!(whole_id("disk0s2s1").is_ok());
+        assert!(whole_id("disk0s").is_err());
+    }
+    #[test]
+    fn nested_os_partitions_and_incomplete_inventory_are_blocked() {
+        let info = usb_info();
+        let layout=plist::to_value(&json!({"DeviceIdentifier":"disk4","Partitions":[{"DeviceIdentifier":"disk4s1","Content":"Apple_APFS"}]})).unwrap();
+        let identity = MediaIdentity {
+            registry_id: 42,
+            usb: true,
+            serial: "SERIAL".into(),
+        };
+        let part=plist::to_value(&json!({"DeviceIdentifier":"disk4s1","FilesystemType":"apfs","MountPoint":"/Volumes/Backup"})).unwrap();
+        assert!(
+            !classify_disk(
+                &info,
+                &layout,
+                std::slice::from_ref(&part),
+                &[],
+                Some(&identity)
+            )
+            .unwrap()
+            .eligible()
+        );
+        assert!(classify_disk(&info, &layout, &[], &[], Some(&identity)).is_err());
     }
 }
