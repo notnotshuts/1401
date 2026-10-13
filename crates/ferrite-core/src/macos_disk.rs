@@ -147,7 +147,10 @@ impl Guard {
             unsafe { ferrite_no_mounts(bsd.as_ptr()) },
             "Volumes still mounted",
         )?;
-        if std::fs::canonicalize(&selected.path)? != Path::new(&selected.path) {
+        if std::fs::canonicalize(&selected.path)
+            .context("Whole disk node disappeared after unmount")?
+            != Path::new(&selected.path)
+        {
             bail!("Disk symlinks are not accepted");
         }
         // Use the buffered block node: FAT directory and allocation-table writes are not sector aligned.
@@ -155,7 +158,8 @@ impl Guard {
             .read(true)
             .write(true)
             .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)
-            .open(&selected.path)?;
+            .open(&selected.path)
+            .context("Open owned whole-disk block node")?;
         let mut bytes = 0;
         let mut sector = 0;
         native_result(
@@ -304,10 +308,12 @@ mod tests {
             ],
             Duration::from_secs(90),
         )?;
+        println!("Created disposable image: {}", path.display());
         let mut image = Image { path, device: None };
-        let (device, _) = image.attach(true)?;
+        let (device, _) = image.attach(true).context("Attach empty owned image")?;
+        println!("Attached owned image: {device}");
         let id = macos::disk_path_id(&device)?;
-        let live = identity(id)?;
+        let live = identity(id).context("Identify owned virtual disk")?;
         assert!(!live.usb);
         let metadata = info(id)?;
         let d = metadata.as_dictionary().context("Virtual metadata")?;
@@ -354,7 +360,7 @@ mod tests {
             &["eraseDisk", "FAT32", "FERRITE-CI", "MBRFormat", &device],
             Duration::from_secs(90),
         )?;
-        let live = identity(id)?;
+        let live = identity(id).context("Identify owned virtual disk")?;
         let metadata = info(id)?;
         let d = metadata.as_dictionary().context("Formatted owned image")?;
         let raw = crate::workspace::run_bounded(
@@ -362,6 +368,7 @@ mod tests {
             &["info", "-plist", &format!("{device}s1")],
             Duration::from_secs(30),
         )?;
+        println!("Formatted owned image as FAT32: {device}");
         let partition = Value::from_reader(Cursor::new(raw))?;
         let initial_mount = partition
             .as_dictionary()
@@ -396,11 +403,13 @@ mod tests {
         {
             use std::io::BufRead;
             let mount = initial_mount;
+            println!("Testing busy volume at {mount}");
             let child = std::process::Command::new("/bin/sh")
                 .args(["-c", "pwd; exec sleep 120"])
                 .current_dir(&mount)
                 .stdout(std::process::Stdio::piped())
-                .spawn()?;
+                .spawn()
+                .context("Start busy-volume process in initial mount")?;
             let mut held = HeldProcess(child);
             let stdout = held.0.stdout.take().context("Busy process output")?;
             let mut ready = String::new();
@@ -411,7 +420,9 @@ mod tests {
                 "a busy volume must not be force-unmounted"
             );
         }
-        let mut guard = Guard::open(&selected)?;
+        println!("Acquiring unoccupied owned disk");
+        let mut guard =
+            Guard::open(&selected).context("Claim and open owned disk after busy-volume test")?;
         assert!(
             Guard::open(&selected).is_err(),
             "a second client must not claim the disk"
