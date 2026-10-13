@@ -206,6 +206,7 @@ pub struct MediaIdentity {
     pub serial: String,
 }
 
+#[cfg(any(target_os = "macos", test))]
 pub(crate) fn disk_path_id(path: &str) -> Result<&str> {
     let id = path.strip_prefix("/dev/").context("Expected /dev/diskN")?;
     if !valid_disk_id(id) {

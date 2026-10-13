@@ -400,15 +400,17 @@ mod tests {
             Guard::open(&selected).is_err(),
             "a second client must not claim the disk"
         );
-        assert!(
-            crate::workspace::run_bounded(
-                "/usr/sbin/diskutil",
-                &["mountDisk", &device],
-                Duration::from_secs(20)
-            )
-            .is_err(),
-            "mount approval must hold during write"
+        // mountDisk reports aggregate success even when an individual volume is denied.
+        let attempt = crate::workspace::run_bounded(
+            "/usr/sbin/diskutil",
+            &["mount", &format!("{device}s1")],
+            Duration::from_secs(20),
         );
+        println!("Mount attempt during lease: {attempt:?}");
+        native_result(
+            unsafe { ferrite_no_mounts(guard.bsd.as_ptr()) },
+            "Mount protection failed",
+        )?;
         let payload = temp.path().join("efi-fixture");
         fs::write(&payload, b"Ferrite native USB integration fixture")?;
         let result = usb::test_macos_payload(guard.file(), selected.size, &payload)?;
