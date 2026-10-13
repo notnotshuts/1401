@@ -39,6 +39,13 @@ fn native_result(code: c_int, operation: &str) -> Result<()> {
     Ok(())
 }
 
+pub(crate) fn sync_device(file: &File) -> Result<()> {
+    native_result(
+        unsafe { ferrite_flush(file.as_raw_fd()) },
+        "Block buffers/hardware cache flush",
+    )
+}
+
 pub fn identity(id: &str) -> Result<macos::MediaIdentity> {
     if !macos::valid_disk_id(id) {
         bail!("Expected a whole disk identifier");
@@ -191,11 +198,7 @@ impl Guard {
 
     pub fn finish(mut self) -> Result<Option<String>> {
         let file = self.file.as_ref().context("Disk closed")?;
-        file.sync_all()?;
-        native_result(
-            unsafe { ferrite_flush(file.as_raw_fd()) },
-            "Hardware cache flush",
-        )?;
+        sync_device(file)?;
         self.file.take();
         self.lease.take();
         let eject = crate::workspace::run_bounded(

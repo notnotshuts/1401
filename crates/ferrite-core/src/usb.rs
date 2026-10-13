@@ -207,6 +207,18 @@ fn payloads(build_root: &Path, recovery_root: &Path) -> Result<(Vec<Payload>, te
     }
     Ok((result, frozen))
 }
+fn sync_storage(file: &File) -> Result<()> {
+    #[cfg(target_os = "macos")]
+    {
+        use std::os::unix::fs::FileTypeExt;
+        if file.metadata()?.file_type().is_block_device() {
+            return crate::macos_disk::sync_device(file);
+        }
+    }
+    file.sync_all()?;
+    Ok(())
+}
+
 fn write_payloads(
     file: &mut File,
     size: u64,
@@ -242,7 +254,7 @@ fn write_payloads(
     mbr[511] = 0xaa;
     file.seek(SeekFrom::Start(0))?;
     file.write_all(&mbr)?;
-    file.sync_all()?;
+    sync_storage(file)?;
     let mut partition = Partition {
         file,
         start: start as u64 * 512,
@@ -314,7 +326,7 @@ fn write_payloads(
     }
     drop(root);
     volume.unmount()?;
-    file.sync_all()?;
+    sync_storage(file)?;
     Ok(Written {
         device: String::new(),
         bytes: total,

@@ -13,6 +13,7 @@
 #include <sys/ioctl.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 int ferrite_media_identity(const char *bsd, uint64_t *id, int *usb, char *serial, size_t capacity) {
     io_service_t media = IOServiceGetMatchingService(0, IOBSDNameMatching(0, 0, bsd));
@@ -166,5 +167,7 @@ int ferrite_geometry(int fd, uint64_t *bytes, uint32_t *sector) {
 }
 
 int ferrite_flush(int fd) {
+    /* POSIX fsync drains the block vnode's dirty buffers; F_FULLFSYNC is for regular files. */
+    if (fsync(fd)) return errno;
     return ioctl(fd, DKIOCSYNCHRONIZECACHE) ? errno : 0;
 }
