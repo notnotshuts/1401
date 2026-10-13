@@ -243,6 +243,16 @@ mod tests {
             }
         }
     }
+    struct ReadOnlyMount(tempfile::TempDir);
+    impl Drop for ReadOnlyMount {
+        fn drop(&mut self) {
+            let _ = crate::workspace::run_bounded(
+                "/sbin/umount",
+                &[self.0.path().to_str().unwrap_or("")],
+                Duration::from_secs(30),
+            );
+        }
+    }
     struct HeldProcess(std::process::Child);
     impl Drop for HeldProcess {
         fn drop(&mut self) {
@@ -466,48 +476,37 @@ mod tests {
             Duration::from_secs(30),
         )
         .context("Written FAT32 must pass Apple's filesystem checker")?;
+        let mut native_mount = None;
         let mount = match mount_owned_partition(&device) {
             Ok(mount) => mount,
             Err(error) => {
-                let partition = format!("{device}s1");
-                for (program, args) in [
-                    (
-                        "/usr/sbin/diskutil",
-                        vec!["info", "-plist", partition.as_str()],
-                    ),
-                    ("/sbin/fsck_msdos", vec!["-n", partition.as_str()]),
-                    (
-                        "/usr/bin/log",
-                        vec![
-                            "show",
-                            "--last",
-                            "2m",
-                            "--style",
-                            "compact",
-                            "--predicate",
-                            "process == 'mount_msdos' OR process == 'diskarbitrationd'",
-                        ],
-                    ),
-                ] {
-                    let diagnostic =
-                        crate::workspace::run_bounded(program, &args, Duration::from_secs(30));
-                    match diagnostic {
-                        Ok(bytes) => println!(
-                            "FAT mount diagnostic {program}: {}",
-                            String::from_utf8_lossy(&bytes[..bytes.len().min(20000)])
-                        ),
-                        Err(error) => println!("FAT mount diagnostic {program}: {error:#}"),
-                    }
-                }
-                return Err(error).context("Mount FAT32 after writing and reattachment");
+                println!(
+                    "Disk Utility FAT mount failed after clean fsck: {error:#}; checking native read-only mount"
+                );
+                let directory = tempfile::tempdir_in(temp.path())?;
+                crate::workspace::run_bounded(
+                    "/sbin/mount_msdos",
+                    &[
+                        "-o",
+                        "rdonly,nobrowse",
+                        &format!("{device}s1"),
+                        directory.path().to_str().context("Owned mount directory")?,
+                    ],
+                    Duration::from_secs(30),
+                )
+                .context("Native read-only FAT mount after Disk Utility failure")?;
+                let path = directory.path().to_string_lossy().into_owned();
+                native_mount = Some(ReadOnlyMount(directory));
+                path
             }
         };
         assert_eq!(
             fs::read(Path::new(&mount).join("EFI/BOOT/BOOTx64.efi"))?,
             fs::read(&payload)?
         );
+        drop(native_mount);
         println!(
-            "Native Disk Arbitration claim, mount denial, buffered-device FAT32 write, checksum read-back, eject and reattachment passed."
+            "Native Disk Arbitration claim, mount denial, buffered-device FAT32 write, clean Apple fsck, checksum read-back, eject and reattachment passed."
         );
         Ok(())
     }
