@@ -27,7 +27,7 @@
 
 ```bash
 sudo apt update
-sudo apt install acpica-tools policykit-1
+sudo apt install acpica-tools policykit-1 libxkbcommon-x11-0
 # Выполните в папке распакованного архива:
 ./ferrite
 ```
@@ -109,7 +109,7 @@ Linux Mint/Ubuntu:
 
 ```bash
 sudo apt install build-essential pkg-config libx11-dev libxi-dev libxcursor-dev \
-  libxrandr-dev libxinerama-dev libwayland-dev libxkbcommon-dev libgl1-mesa-dev acpica-tools
+  libxrandr-dev libxinerama-dev libwayland-dev libxkbcommon-dev libxkbcommon-x11-dev libgl1-mesa-dev acpica-tools
 ```
 
 Windows: Visual Studio Build Tools с C++ и Rust MSVC. macOS: Xcode Command Line Tools (`xcode-select --install`). Затем на любой из трёх платформ:
