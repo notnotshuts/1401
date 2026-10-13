@@ -63,10 +63,11 @@ static DADissenterRef deny_release(DADiskRef disk, void *context) {
 static DADissenterRef mount_approval(DADiskRef disk, void *context) {
     struct lease *owner = context;
     DADiskRef whole = DADiskCopyWholeDisk(disk);
-    if (!whole) return NULL;
-    const char *name = DADiskGetBSDName(whole);
-    int ours = name && strcmp(name, owner->bsd) == 0;
-    CFRelease(whole);
+    const char *name = DADiskGetBSDName(whole ? whole : disk);
+    size_t length = strlen(owner->bsd);
+    int ours = name && strncmp(name, owner->bsd, length) == 0
+        && (name[length] == 0 || name[length] == 's');
+    if (whole) CFRelease(whole);
     return ours ? deny_release(disk, context) : NULL;
 }
 

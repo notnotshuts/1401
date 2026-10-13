@@ -82,9 +82,9 @@ jobs:
       - run: cargo fmt --all --check
       - run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - run: cargo test --workspace --locked
-      - run: cargo build --release --workspace --locked --target ${{ matrix.target }}
       - name: Native USB write on owned virtual disk
         run: python3 tools/macos/test_usb.py
+      - run: cargo build --release --workspace --locked --target ${{ matrix.target }}
       - name: Validate native macOS adapters
         run: |
           target/${{ matrix.target }}/release/ferrite-cli snapshot "$RUNNER_TEMP/ferrite-scan"
