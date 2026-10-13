@@ -291,7 +291,7 @@ mod tests {
             &["mount", &partition],
             Duration::from_secs(60),
         )
-        .context("Explicitly mount owned FAT32 test partition")?;
+        .context("Explicitly mount owned test partition")?;
         let raw = crate::workspace::run_bounded(
             "/usr/sbin/diskutil",
             &["info", "-plist", &partition],
@@ -303,7 +303,7 @@ mod tests {
             .and_then(|p| p.get("MountPoint"))
             .and_then(Value::as_string)
             .filter(|p| !p.is_empty() && Path::new(p).is_dir())
-            .context("Owned FAT32 partition has no usable mount directory")?;
+            .context("Owned partition has no usable mount directory")?;
         Ok(mount.to_string())
     }
 
@@ -380,14 +380,14 @@ mod tests {
         }));
         crate::workspace::run_bounded(
             "/usr/sbin/diskutil",
-            &["eraseDisk", "FAT32", "FERRITE-CI", "MBRFormat", &device],
+            &["eraseDisk", "HFS+", "FERRITE-CI", "MBRFormat", &device],
             Duration::from_secs(90),
         )?;
         let live = identity(id).context("Identify owned virtual disk")?;
         let metadata = info(id)?;
         let d = metadata.as_dictionary().context("Formatted owned image")?;
         let initial_mount = mount_owned_partition(&device)?;
-        println!("Formatted and mounted owned image: {device} at {initial_mount}");
+        println!("Formatted and mounted initial HFS+ owned image: {device} at {initial_mount}");
         let selected = Disk {
             path: device.clone(),
             model: "Owned CI image".into(),
@@ -460,7 +460,36 @@ mod tests {
         );
         image.device = None;
         let (device, _) = image.attach(true)?;
-        let mount = mount_owned_partition(&device)?;
+        let mount = match mount_owned_partition(&device) {
+            Ok(mount) => mount,
+            Err(error) => {
+                let partition = format!("{device}s1");
+                for (program, args) in [
+                    (
+                        "/usr/sbin/diskutil",
+                        vec!["info", "-plist", partition.as_str()],
+                    ),
+                    ("/sbin/fsck_msdos", vec!["-n", partition.as_str()]),
+                    (
+                        "/usr/bin/log",
+                        vec![
+                            "show",
+                            "--last",
+                            "2m",
+                            "--style",
+                            "compact",
+                            "--predicate",
+                            "process == 'mount_msdos' OR process == 'diskarbitrationd'",
+                        ],
+                    ),
+                ] {
+                    let diagnostic =
+                        crate::workspace::run_bounded(program, &args, Duration::from_secs(30));
+                    println!("FAT mount diagnostic {program}: {diagnostic:?}");
+                }
+                return Err(error).context("Mount FAT32 after writing and reattachment");
+            }
+        };
         assert_eq!(
             fs::read(Path::new(&mount).join("EFI/BOOT/BOOTx64.efi"))?,
             fs::read(&payload)?
