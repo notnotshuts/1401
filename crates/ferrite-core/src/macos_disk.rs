@@ -460,6 +460,12 @@ mod tests {
         );
         image.device = None;
         let (device, _) = image.attach(true)?;
+        crate::workspace::run_bounded(
+            "/sbin/fsck_msdos",
+            &["-n", &format!("{device}s1")],
+            Duration::from_secs(30),
+        )
+        .context("Written FAT32 must pass Apple's filesystem checker")?;
         let mount = match mount_owned_partition(&device) {
             Ok(mount) => mount,
             Err(error) => {
@@ -485,7 +491,13 @@ mod tests {
                 ] {
                     let diagnostic =
                         crate::workspace::run_bounded(program, &args, Duration::from_secs(30));
-                    println!("FAT mount diagnostic {program}: {diagnostic:?}");
+                    match diagnostic {
+                        Ok(bytes) => println!(
+                            "FAT mount diagnostic {program}: {}",
+                            String::from_utf8_lossy(&bytes[..bytes.len().min(20000)])
+                        ),
+                        Err(error) => println!("FAT mount diagnostic {program}: {error:#}"),
+                    }
                 }
                 return Err(error).context("Mount FAT32 after writing and reattachment");
             }

@@ -255,6 +255,13 @@ fn write_payloads(
     file.seek(SeekFrom::Start(0))?;
     file.write_all(&mbr)?;
     sync_storage(file)?;
+    // Clear old filesystem signatures in the new partition's reserved area and trailing metadata.
+    file.seek(SeekFrom::Start(start as u64 * 512))?;
+    file.write_all(&zeros)?;
+    file.seek(SeekFrom::Start(
+        start as u64 * 512 + part_size - zeros.len() as u64,
+    ))?;
+    file.write_all(&zeros)?;
     let mut partition = Partition {
         file,
         start: start as u64 * 512,
@@ -325,6 +332,8 @@ fn write_payloads(
         }
     }
     drop(root);
+    // Populate FSInfo free-cluster accounting before unmounting.
+    volume.stats()?;
     volume.unmount()?;
     sync_storage(file)?;
     Ok(Written {
@@ -566,6 +575,36 @@ mod tests {
             assert!(checked_relative(path).is_err());
         }
     }
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn fat32_directories_pass_apple_fsck() -> Result<()> {
+        let temp = tempfile::NamedTempFile::new()?;
+        let mut file = temp.reopen()?;
+        file.set_len(128 * 1024 * 1024)?;
+        fatfs::format_volume(
+            &mut file,
+            FormatVolumeOptions::new().fat_type(FatType::Fat32),
+        )?;
+        file.seek(SeekFrom::Start(0))?;
+        let volume = FileSystem::new(file, FsOptions::new())?;
+        {
+            let efi = volume.root_dir().create_dir("EFI")?;
+            let boot = efi.create_dir("BOOT")?;
+            boot.create_file("BOOTx64.efi")?.write_all(b"fixture")?;
+            efi.create_dir("a long directory name")?
+                .create_file("another long name.txt")?
+                .write_all(b"unicode and LFN layout")?;
+        }
+        volume.stats()?;
+        volume.unmount()?;
+        crate::workspace::run_bounded(
+            "/sbin/fsck_msdos",
+            &["-n", temp.path().to_str().context("Test image path")?],
+            std::time::Duration::from_secs(30),
+        )?;
+        Ok(())
+    }
+
     #[test]
     fn fat32_round_trip_on_sparse_image() {
         let temp = tempfile::tempdir().unwrap();

@@ -33,6 +33,8 @@ Tras crear la EFI, pulsa «Siguiente: descargar Apple Recovery». Se necesita co
 
 Conecta un USB de 8–128 GiB y actualiza la lista. Comprueba modelo, tamaño y número de serie. Guarda los archivos que necesites: la escritura borra todos los datos del USB elegido. Escribe la ruta exacta e inicia la escritura. También puedes crear un archivo de imagen sin modificar las unidades.
 
+En macOS, elige el disco USB completo, por ejemplo `/dev/disk4`, en vez de una partición como `/dev/disk4s1`. Confirma la solicitud del sistema de permisos de administrador; Ferrite sigue sin privilegios elevados. Si el volumen está ocupado, cierra las ventanas de Finder y terminales que lo usen. Al terminar la escritura, la unidad se expulsa automáticamente; vuelve a conectarla para abrir EFI. En Apple Silicon, importa el informe y las tablas ACPI del PC Intel/AMD de destino.
+
 ## 6. Arranca y comprueba el resultado
 
 Abre el menú de arranque UEFI y elige el USB. Selecciona Recovery en OpenCore; la instalación de macOS usa internet. Comprueba el disco de destino antes de formatearlo. Después, prueba red, audio, USB, pantallas y suspensión. Conserva el USB hasta comprobar el arranque desde el disco interno.

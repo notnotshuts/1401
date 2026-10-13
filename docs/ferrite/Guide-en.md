@@ -33,6 +33,8 @@ After building, choose “Next: download Apple Recovery”. An internet connecti
 
 Connect an 8–128 GiB USB drive and refresh the drive list. Check the model, size and serial number. Back up needed files: writing erases all data on the selected USB. Enter the exact path and start writing. Alternatively, create an image file without modifying drives.
 
+On macOS, select the whole USB disk, such as `/dev/disk4`, rather than a partition such as `/dev/disk4s1`. Confirm the system administrator authorization prompt; Ferrite itself stays unprivileged. If the volume is busy, close Finder windows and terminals using it. Successful writing ejects the drive automatically; reconnect it to inspect EFI. On Apple Silicon, import the target Intel/AMD PC report and ACPI tables.
+
 ## 6. Boot and test the result
 
 Open the UEFI Boot Menu and select the USB. Choose Recovery in OpenCore; macOS installation uses the internet. Check the target disk before formatting. After installation, test networking, audio, USB, displays and sleep. Keep the installer USB until internal-disk boot has been tested.

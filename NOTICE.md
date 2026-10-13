@@ -27,3 +27,7 @@ BIOS guidance uses technical facts from the [Dortania OpenCore Install Guide](ht
 Rust dependencies and resolved versions are recorded in `Cargo.lock`; each dependency retains its own license. The desktop uses egui/eframe rather than the former CustomTkinter interface. Python is used only by development export/packaging tools, not by the application runtime.
 
 macOS bundles use local ad-hoc signing. This is not Developer ID signing or Apple notarization. Ferrite is not affiliated with Apple, the OpenCore authors, or the authors of its hardware datasets.
+
+## fatfs
+
+The patched fatfs 0.3.6 source in `vendor/fatfs` is distributed under MIT. See `licenses/fatfs.txt` and `vendor/fatfs/PATCHES.md`.

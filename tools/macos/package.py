@@ -10,6 +10,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 
@@ -63,7 +64,18 @@ def package(target: str, skip_build: bool) -> pathlib.Path:
     (image_root / "Applications").symlink_to("/Applications")
     if dmg.exists():
         dmg.unlink()
-    subprocess.run(["hdiutil", "create", "-volname", "Ferrite", "-srcfolder", str(image_root), "-format", "UDZO", str(dmg)], check=True)
+    command = ["hdiutil", "create", "-volname", "Ferrite", "-srcfolder", str(image_root), "-format", "UDZO", str(dmg)]
+    for attempt in range(3):
+        result = subprocess.run(command, capture_output=True, text=True, timeout=180)
+        if result.returncode == 0:
+            break
+        if "Resource busy" not in result.stderr or attempt == 2:
+            raise RuntimeError(f"DMG creation failed: {result.stderr} {result.stdout}")
+        print(f"hdiutil is busy; retrying DMG creation ({attempt + 1}/2)", flush=True)
+        if dmg.exists():
+            dmg.unlink()
+        time.sleep(3 * (attempt + 1))
+    subprocess.run(["hdiutil", "verify", str(dmg)], check=True, timeout=180)
     return dmg
 
 if __name__ == "__main__":
