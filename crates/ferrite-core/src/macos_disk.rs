@@ -284,6 +284,29 @@ mod tests {
         }
     }
 
+    fn mount_owned_partition(device: &str) -> Result<String> {
+        let partition = format!("{device}s1");
+        crate::workspace::run_bounded(
+            "/usr/sbin/diskutil",
+            &["mount", &partition],
+            Duration::from_secs(60),
+        )
+        .context("Explicitly mount owned FAT32 test partition")?;
+        let raw = crate::workspace::run_bounded(
+            "/usr/sbin/diskutil",
+            &["info", "-plist", &partition],
+            Duration::from_secs(30),
+        )?;
+        let value = Value::from_reader(Cursor::new(raw))?;
+        let mount = value
+            .as_dictionary()
+            .and_then(|p| p.get("MountPoint"))
+            .and_then(Value::as_string)
+            .filter(|p| !p.is_empty() && Path::new(p).is_dir())
+            .context("Owned FAT32 partition has no usable mount directory")?;
+        Ok(mount.to_string())
+    }
+
     #[test]
     #[ignore = "Root-only integration on an owned disposable GitHub Actions disk image"]
     fn virtual_disk_claim_and_write() -> Result<()> {
@@ -363,19 +386,8 @@ mod tests {
         let live = identity(id).context("Identify owned virtual disk")?;
         let metadata = info(id)?;
         let d = metadata.as_dictionary().context("Formatted owned image")?;
-        let raw = crate::workspace::run_bounded(
-            "/usr/sbin/diskutil",
-            &["info", "-plist", &format!("{device}s1")],
-            Duration::from_secs(30),
-        )?;
-        println!("Formatted owned image as FAT32: {device}");
-        let partition = Value::from_reader(Cursor::new(raw))?;
-        let initial_mount = partition
-            .as_dictionary()
-            .and_then(|p| p.get("MountPoint"))
-            .and_then(Value::as_string)
-            .context("Initial FAT32 mount")?
-            .to_string();
+        let initial_mount = mount_owned_partition(&device)?;
+        println!("Formatted and mounted owned image: {device} at {initial_mount}");
         let selected = Disk {
             path: device.clone(),
             model: "Owned CI image".into(),
@@ -447,8 +459,8 @@ mod tests {
             "Eject must succeed on the owned image"
         );
         image.device = None;
-        let (_, mount) = image.attach(false)?;
-        let mount = mount.context("Written FAT32 must mount after reattachment")?;
+        let (device, _) = image.attach(true)?;
+        let mount = mount_owned_partition(&device)?;
         assert_eq!(
             fs::read(Path::new(&mount).join("EFI/BOOT/BOOTx64.efi"))?,
             fs::read(&payload)?
