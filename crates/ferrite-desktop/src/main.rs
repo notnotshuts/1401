@@ -19,16 +19,6 @@ use std::{
     time::Duration,
 };
 
-const BG: Color32 = Color32::from_rgb(31, 35, 42);
-const PANEL: Color32 = Color32::from_rgb(36, 40, 48);
-const CARD: Color32 = Color32::from_rgb(44, 49, 58);
-const BORDER: Color32 = Color32::from_rgb(54, 60, 71);
-const TEXT: Color32 = Color32::from_rgb(212, 216, 225);
-const MUTED: Color32 = Color32::from_rgb(133, 143, 159);
-const ACCENT: Color32 = Color32::from_rgb(138, 176, 243);
-const WARNING: Color32 = Color32::from_rgb(242, 193, 112);
-const ERROR: Color32 = Color32::from_rgb(243, 132, 137);
-
 #[derive(Clone, Copy, PartialEq)]
 enum Page {
     Overview,
@@ -88,38 +78,17 @@ struct App {
     language: Language,
     bios_checks: [bool; 8],
     install_checks: [bool; 6],
-    tabs: Vec<Page>,
+    appearance: theme::Appearance,
+    applied_dark: Option<bool>,
     palette_open: bool,
     palette_query: String,
     palette_index: usize,
+    #[cfg(feature = "screenshot")]
+    capture_frames: u8,
 }
 impl App {
     fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        let mut style = (*cc.egui_ctx.style()).clone();
-        style.visuals = egui::Visuals::dark();
-        style.visuals.panel_fill = BG;
-        style.visuals.window_fill = PANEL;
-        style.visuals.override_text_color = Some(TEXT);
-        style.visuals.selection.bg_fill = ACCENT.gamma_multiply(0.22);
-        style.visuals.selection.stroke = egui::Stroke::new(1_f32, ACCENT);
-        style.spacing.item_spacing = Vec2::new(8., 8.);
-        style.spacing.button_padding = Vec2::new(10., 5.);
-        style.visuals.widgets.inactive.corner_radius = egui::CornerRadius::same(3);
-        style.visuals.widgets.inactive.bg_stroke = egui::Stroke::new(1_f32, BORDER);
-        style.visuals.widgets.hovered.bg_fill = CARD;
-        style.visuals.widgets.active.bg_fill = BORDER;
-        style.visuals.widgets.hovered.corner_radius = egui::CornerRadius::same(3);
-        style.visuals.widgets.active.corner_radius = egui::CornerRadius::same(3);
-        style.visuals.window_stroke = egui::Stroke::new(1_f32, BORDER);
-        style.visuals.window_corner_radius = egui::CornerRadius::same(4);
-        style.visuals.widgets.inactive.bg_fill = CARD;
-        style
-            .text_styles
-            .insert(egui::TextStyle::Body, egui::FontId::proportional(13.));
-        style
-            .text_styles
-            .insert(egui::TextStyle::Button, egui::FontId::proportional(13.));
-        cc.egui_ctx.set_style(style);
+        theme::fonts(&cc.egui_ctx);
         let language = preferences::load();
         #[cfg(feature = "screenshot")]
         let language = std::env::var("FERRITE_PREVIEW_LANGUAGE")
@@ -156,10 +125,13 @@ impl App {
             language,
             bios_checks: [false; 8],
             install_checks: [false; 6],
-            tabs: vec![Page::Overview],
+            appearance: preferences::load_appearance(),
+            applied_dark: None,
             palette_open: false,
             palette_query: String::new(),
             palette_index: 0,
+            #[cfg(feature = "screenshot")]
+            capture_frames: 0,
         };
         if let Some(file) = std::env::args_os().nth(1) {
             let path = PathBuf::from(file);
@@ -181,6 +153,22 @@ impl App {
         if std::env::var("FERRITE_PREVIEW_PAGE").as_deref() == Ok("commands") {
             app.palette_open = true;
         }
+        #[cfg(feature = "screenshot")]
+        {
+            app.appearance = match std::env::var("FERRITE_PREVIEW_THEME").as_deref() {
+                Ok("dark") => theme::Appearance::Dark,
+                _ => theme::Appearance::Light,
+            };
+            match std::env::var("FERRITE_PREVIEW_PAGE").as_deref() {
+                Ok("usb") => app.page = Page::Usb,
+                Ok("settings") => app.page = Page::Settings,
+                _ => {}
+            }
+        }
+        #[cfg(feature = "screenshot")]
+        if std::env::var("FERRITE_PREVIEW_DEMO").as_deref() == Ok("1") {
+            preview::populate(&mut app);
+        }
         app
     }
     fn start(
@@ -195,6 +183,12 @@ impl App {
         ctx: &egui::Context,
         job: impl FnOnce(mpsc::Sender<Message>) -> anyhow::Result<Message> + Send + 'static,
     ) {
+        #[cfg(feature = "screenshot")]
+        if std::env::var_os("FERRITE_SCREENSHOT_TO").is_some()
+            || std::env::var("FERRITE_PREVIEW_DEMO").as_deref() == Ok("1")
+        {
+            return;
+        }
         if self.worker.is_some() {
             return;
         }
@@ -265,8 +259,11 @@ impl App {
             };
             match result {
                 Ok(Message::Progress(name, done, total)) => {
-                    self.notice = tr("task.running").into();
-                    let _ = name;
+                    self.notice = if name.is_empty() {
+                        tr("task.running").into()
+                    } else {
+                        name
+                    };
                     self.progress = if total > 0 {
                         Some(done as f32 / total as f32)
                     } else {
@@ -372,123 +369,133 @@ impl App {
         }
     }
     fn overview(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
-        let wide = ui.available_width();
-        let busy = self.worker.is_some();
-        if cfg!(target_os = "macos") {
-            ui.label(RichText::new(tr("mac.prepare_host")).color(MUTED));
-            ui.add_space(12.);
-        }
-        egui::Frame::new()
-            .fill(BG)
-            .corner_radius(0)
-            .inner_margin(0)
-            .show(ui, |ui| {
-                ui.set_min_width(wide);
-                ui.label(
-                    RichText::new(tr("overview.eyebrow"))
-                        .size(12.)
-                        .color(ACCENT),
-                );
-                ui.add_space(8.);
-                ui.label(RichText::new(tr("overview.title")).size(20.).strong());
-                ui.label(RichText::new(tr("overview.subtitle")).color(MUTED));
-                ui.add_space(14.);
+        let colors = theme::palette(ui);
+        ui.label(RichText::new(tr("ui.welcome")).size(34.).strong());
+        ui.label(RichText::new(tr("ui.welcome_hint")).color(colors.muted));
+        ui.add_space(20.);
+        theme::card(ui).show(ui, |ui| {
+            ui.set_min_width(ui.available_width());
+            ui.label(
+                RichText::new(if self.report.is_some() {
+                    tr("ui.report_ready")
+                } else {
+                    tr("ui.start")
+                })
+                .size(23.)
+                .strong(),
+            );
+            ui.add_space(6.);
+            if self.report.is_none() {
+                ui.label(RichText::new(tr("ui.report_hint")).color(colors.muted));
+                ui.add_space(12.);
                 ui.horizontal_wrapped(|ui| {
                     if ui
                         .add_enabled(
-                            !busy,
-                            egui::Button::new(RichText::new(tr("action.scan_pc")).color(BG))
-                                .fill(ACCENT),
+                            self.worker.is_none(),
+                            theme::primary(tr("action.scan_pc"), ui),
                         )
                         .clicked()
                     {
                         self.scan(ctx);
                     }
                     if ui
-                        .add_enabled(!busy, egui::Button::new(tr("action.import")))
+                        .add_enabled(
+                            self.worker.is_none(),
+                            egui::Button::new(tr("action.import")),
+                        )
                         .clicked()
                     {
                         self.choose_report(ctx);
                     }
                 });
-            });
-        ui.add_space(18.);
-        ui.columns(3, |columns| {
-            let summary = self.analysis.as_ref();
-            stat(
-                &mut columns[0],
-                tr("summary.hardware"),
-                &summary
-                    .map(|a| a.devices.len().to_string())
-                    .unwrap_or_else(|| "—".into()),
-                tr("summary.devices"),
-            );
-            stat(
-                &mut columns[1],
-                tr("summary.compatibility"),
-                summary
-                    .map(|a| {
-                        if a.ok {
-                            tr("summary.supported")
+                if cfg!(target_os = "macos") {
+                    ui.add_space(8.);
+                    ui.label(
+                        RichText::new(tr("ui.mac_target"))
+                            .size(13.)
+                            .color(colors.muted),
+                    );
+                }
+            } else {
+                if let Some(a) = &self.analysis {
+                    ui.label(
+                        RichText::new(if a.ok {
+                            tr("hardware.compatible")
                         } else {
                             tr("summary.limits")
-                        }
-                    })
-                    .unwrap_or(tr("summary.unchecked")),
-                tr("summary.description"),
-            );
-            stat(
-                &mut columns[2],
-                tr("summary.platform"),
-                ferrite_core::platform::host_name(),
-                tr("summary.platform_description"),
-            );
+                        })
+                        .color(if a.ok {
+                            colors.accent
+                        } else {
+                            colors.warning
+                        }),
+                    );
+                }
+                ui.add_space(12.);
+                if ui.add(theme::primary(tr("ui.continue"), ui)).clicked() {
+                    self.page = if self.build_result.is_some() {
+                        Page::Usb
+                    } else if self.analysis.as_ref().is_some_and(|a| a.ok) {
+                        Page::Efi
+                    } else {
+                        Page::Hardware
+                    };
+                }
+            }
         });
-        ui.add_space(22.);
-        ui.label(RichText::new(tr("overview.steps")).size(21.).strong());
-        for (number, title, detail, page) in [
+        ui.add_space(20.);
+        let report_ready = self.report.is_some();
+        let build_ready = self.build_result.is_some();
+        let recovery_ready = self.recovery_result.is_some();
+        for (number, title, detail, page, done) in [
             (
-                "01",
+                "1",
                 tr("nav.hardware"),
-                tr("overview.hardware_detail"),
+                tr("ui.step_hardware"),
                 Page::Hardware,
+                report_ready,
             ),
-            ("02", "OpenCore EFI", tr("overview.efi_detail"), Page::Efi),
             (
-                "03",
-                tr("overview.usb_title"),
-                tr("overview.usb_detail"),
+                "2",
+                "OpenCore EFI",
+                tr("ui.step_efi"),
+                Page::Efi,
+                build_ready,
+            ),
+            (
+                "3",
+                tr("nav.usb"),
+                tr("ui.step_usb"),
                 Page::Usb,
+                recovery_ready,
             ),
         ] {
-            egui::Frame::new()
-                .fill(PANEL)
-                .corner_radius(3)
-                .inner_margin(12)
-                .show(ui, |ui| {
-                    ui.set_min_width(wide - 24.);
-                    ui.horizontal(|ui| {
-                        ui.label(RichText::new(number).size(20.).color(ACCENT));
-                        ui.vertical(|ui| {
-                            ui.strong(title);
-                            ui.label(RichText::new(detail).color(MUTED));
-                        });
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            if ui.button(tr("action.open")).clicked() {
-                                self.page = page;
-                            }
-                        });
+            theme::card(ui).inner_margin(16).show(ui, |ui| {
+                ui.set_min_width(ui.available_width());
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new(number).size(25.).color(colors.accent));
+                    ui.vertical(|ui| {
+                        ui.strong(title);
+                        ui.label(RichText::new(detail).size(14.).color(colors.muted));
+                    });
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        if ui
+                            .button(if done {
+                                tr("ui.review")
+                            } else {
+                                tr("action.open")
+                            })
+                            .clicked()
+                        {
+                            self.page = page;
+                        }
                     });
                 });
-        }
-        if let Some(a) = &self.analysis {
-            ui.add_space(14.);
-            if !a.blockers.is_empty() {
-                ui.label(RichText::new(tr("hardware.blocked")).color(ERROR));
-            }
+            });
         }
     }
     fn hardware(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
+        let colors = theme::palette(ui);
         ui.horizontal_wrapped(|ui| {
             self.version(ui);
             if ui
@@ -520,6 +527,7 @@ impl App {
             ui.add(
                 egui::TextEdit::singleline(&mut self.search)
                     .hint_text(tr("hardware.search"))
+                    .margin(Vec2::new(12., 12.))
                     .desired_width(360.),
             );
             ui.checkbox(&mut self.only_problems, tr("hardware.only_limits"));
@@ -527,16 +535,16 @@ impl App {
         ui.add_space(8.);
         if let Some(a) = &self.analysis {
             if a.ok {
-                ui.label(RichText::new(tr("hardware.compatible")).color(ACCENT));
+                ui.label(RichText::new(tr("hardware.compatible")).color(colors.accent));
             }
             if !a.blockers.is_empty() {
-                ui.label(RichText::new(tr("hardware.blocked")).color(ERROR));
+                ui.label(RichText::new(tr("hardware.blocked")).color(colors.error));
                 guide_ui::diagnostic(ui, a.blockers.iter().map(String::as_str));
             }
             ui.horizontal_wrapped(|ui| {
                 ui.label(tr("hardware.native_versions"));
                 for v in &a.native_versions {
-                    ui.label(RichText::new(compatibility::version_name(*v)).color(ACCENT));
+                    ui.label(RichText::new(compatibility::version_name(*v)).color(colors.accent));
                 }
             });
             let query = self.search.to_lowercase();
@@ -551,42 +559,29 @@ impl App {
                     continue;
                 }
                 egui::Frame::new()
-                    .fill(PANEL)
-                    .corner_radius(3)
-                    .inner_margin(12)
+                    .fill(colors.panel)
+                    .corner_radius(18)
+                    .inner_margin(20)
                     .show(ui, |ui| {
                         ui.set_min_width(ui.available_width() - 24.);
                         ui.horizontal_wrapped(|ui| {
                             ui.label(
                                 RichText::new(guide_ui::section_label(&d.section))
                                     .size(12.)
-                                    .color(MUTED),
+                                    .color(colors.muted),
                             );
                             ui.label(
                                 RichText::new(guide_ui::status_label(d.status))
-                                    .color(status_color(d.status)),
+                                    .color(status_color(ui, d.status)),
                             );
                         });
                         ui.strong(&d.name);
-                        ui.horizontal_wrapped(|ui| {
-                            ui.monospace(&d.id);
-                            if let Some(r) = d.native {
-                                ui.label(
-                                    RichText::new(format!(
-                                        "Darwin {}.{}.{} – {}.{}.{}",
-                                        r.min.0, r.min.1, r.min.2, r.max.0, r.max.1, r.max.2
-                                    ))
-                                    .size(12.)
-                                    .color(MUTED),
-                                );
-                            }
-                        });
-                        ui.label(
-                            RichText::new(guide_ui::status_reason(d.status))
-                                .size(13.)
-                                .color(MUTED),
-                        );
-                        guide_ui::diagnostic(ui, std::iter::once(d.reason.as_str()));
+                        egui::CollapsingHeader::new(tr("details.title"))
+                            .id_salt((&d.section, &d.name, &d.id))
+                            .show(ui, |ui| {
+                                ui.monospace(&d.id);
+                                ui.label(&d.reason);
+                            });
                     });
             }
             ui.add_space(12.);
@@ -594,10 +589,10 @@ impl App {
                 "hardware.notes",
                 &[("0", format!("{}", a.warnings.len()))],
             ))
-            .default_open(true)
+            .default_open(false)
             .show(ui, |ui| {
                 for w in &a.warnings {
-                    ui.label(RichText::new(w).color(WARNING));
+                    ui.label(RichText::new(w).color(colors.warning));
                 }
             });
         } else {
@@ -605,120 +600,74 @@ impl App {
         }
     }
     fn efi(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
+        let colors = theme::palette(ui);
         self.build_workflow(ui, ctx);
-        ui.separator();
-        ui.label(tr("efi.folder_hint"));
-        let busy = self.worker.is_some();
-        ui.horizontal_wrapped(|ui| {
-            if ui
-                .add_enabled(!busy, egui::Button::new(tr("action.audit_efi")))
-                .clicked()
-            {
-                self.start(ctx, || {
-                    if let Some(path) = rfd::FileDialog::new().pick_folder() {
-                        Ok(Message::Audit(efi::audit(&path, None)?))
-                    } else {
-                        Ok(Message::Saved(tr("task.cancelled").into()))
-                    }
-                });
+        ui.add_space(16.);
+        egui::CollapsingHeader::new(tr("ui.existing_efi")).show(ui, |ui| {
+            let busy = self.worker.is_some();
+            ui.horizontal_wrapped(|ui| {
+                if ui
+                    .add_enabled(!busy, egui::Button::new(tr("action.audit_efi")))
+                    .clicked()
+                {
+                    self.start(ctx, || {
+                        if let Some(path) = rfd::FileDialog::new().pick_folder() {
+                            Ok(Message::Audit(efi::audit(&path, None)?))
+                        } else {
+                            Ok(Message::Saved(tr("task.cancelled").into()))
+                        }
+                    });
+                }
+                if ui
+                    .add_enabled(
+                        !busy && self.audit.is_some(),
+                        egui::Button::new(tr("action.repair_efi")),
+                    )
+                    .clicked()
+                    && let Some(a) = &self.audit
+                {
+                    let root = a.root.clone();
+                    let output_root = self.root.clone();
+                    self.start(ctx, move || {
+                        let stamp = std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)?
+                            .as_nanos();
+                        let output = output_root.join(format!("efi-repair-{stamp}"));
+                        let changes = efi::repair_copy(&root, &output)?;
+                        workspace::save_new(&output_root, "policy-changes.json", &changes)?;
+                        Ok(Message::Saved(tf(
+                            "efi.copy_result",
+                            &[
+                                ("0", format!("{}", output.display())),
+                                ("1", format!("{}", changes.len())),
+                            ],
+                        )))
+                    });
+                }
+            });
+            ui.add_space(18.);
+            if let Some(a) = &self.audit {
+                ui.monospace(a.root.display().to_string());
+                ui.label(tf("efi.files", &[("0", format!("{}", a.files))]));
+                ui.monospace(format!("config SHA-256: {}", a.config_sha256));
+                if !a.issues.is_empty() {
+                    ui.label(
+                        RichText::new(tf("efi.issues", &[("0", a.issues.len().to_string())]))
+                            .color(colors.error),
+                    );
+                }
+                guide_ui::diagnostic(ui, a.issues.iter().chain(&a.warnings).map(String::as_str));
+                if a.issues.is_empty() {
+                    ui.label(RichText::new(tr("efi.structure_ok")).color(colors.accent));
+                }
+            } else {
+                empty(ui, tr("efi.copy_title"), tr("efi.copy_help"));
             }
-            if ui
-                .add_enabled(
-                    !busy && self.audit.is_some(),
-                    egui::Button::new(tr("action.repair_efi")),
-                )
-                .clicked()
-                && let Some(a) = &self.audit
-            {
-                let root = a.root.clone();
-                let output_root = self.root.clone();
-                self.start(ctx, move || {
-                    let stamp = std::time::SystemTime::now()
-                        .duration_since(std::time::UNIX_EPOCH)?
-                        .as_nanos();
-                    let output = output_root.join(format!("efi-repair-{stamp}"));
-                    let changes = efi::repair_copy(&root, &output)?;
-                    workspace::save_new(&output_root, "policy-changes.json", &changes)?;
-                    Ok(Message::Saved(tf(
-                        "efi.copy_result",
-                        &[
-                            ("0", format!("{}", output.display())),
-                            ("1", format!("{}", changes.len())),
-                        ],
-                    )))
-                });
-            }
+            ui.add_space(20.);
         });
-        ui.add_space(18.);
-        if let Some(a) = &self.audit {
-            ui.monospace(a.root.display().to_string());
-            ui.label(tf("efi.files", &[("0", format!("{}", a.files))]));
-            ui.monospace(format!("config SHA-256: {}", a.config_sha256));
-            if !a.issues.is_empty() {
-                ui.label(
-                    RichText::new(tf("efi.issues", &[("0", a.issues.len().to_string())]))
-                        .color(ERROR),
-                );
-            }
-            guide_ui::diagnostic(ui, a.issues.iter().chain(&a.warnings).map(String::as_str));
-            if a.issues.is_empty() {
-                ui.label(RichText::new(tr("efi.structure_ok")).color(ACCENT));
-            }
-        } else {
-            empty(ui, tr("efi.copy_title"), tr("efi.copy_help"));
-        }
-        ui.add_space(20.);
-        ui.label(RichText::new(tr("efi.after_build")).color(MUTED));
     }
     fn usb(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
         self.usb_workflow(ui, ctx);
-        ui.separator();
-        if ui
-            .add_enabled(
-                self.worker.is_none(),
-                egui::Button::new(tr("action.refresh_drives")),
-            )
-            .clicked()
-        {
-            self.start(ctx, || Ok(Message::Disks(disks::list()?)));
-        }
-        ui.label(RichText::new(tr("usb.protected_hint")).color(WARNING));
-        ui.add_space(12.);
-        for disk in &self.disks {
-            egui::Frame::new()
-                .fill(PANEL)
-                .corner_radius(3)
-                .inner_margin(12)
-                .show(ui, |ui| {
-                    ui.set_min_width(ui.available_width() - 24.);
-                    ui.horizontal(|ui| {
-                        ui.strong(if disk.model.is_empty() {
-                            &disk.path
-                        } else {
-                            &disk.model
-                        });
-                        ui.label(format!(
-                            "{:.1} GiB · {}",
-                            disk.size as f64 / 1073741824.,
-                            disk.bus
-                        ));
-                    });
-                    ui.monospace(&disk.path);
-                    ui.label(
-                        RichText::new(tf("usb.serial", &[("0", disk.serial.to_string())]))
-                            .color(MUTED),
-                    );
-                    if disk.reasons.is_empty() {
-                        ui.label(RichText::new(tr("usb.eligible")).color(ACCENT));
-                    }
-                    for reason in &disk.reasons {
-                        ui.label(RichText::new(reason).color(WARNING));
-                    }
-                });
-        }
-        if self.disks.is_empty() {
-            empty(ui, tr("usb.empty"), tr("usb.empty_help"));
-        }
     }
     fn logs(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
         if ui
@@ -750,7 +699,7 @@ impl App {
     fn settings(&mut self, ui: &mut egui::Ui, _ctx: &egui::Context) {
         ui.strong(tr("settings.language"));
         self.language_picker(ui);
-        ui.label(RichText::new(tr("settings.language_hint")).color(MUTED));
+
         ui.add_space(18.);
         ui.strong(tr("settings.workspace"));
         ui.monospace(self.root.display().to_string());
@@ -761,14 +710,29 @@ impl App {
         }
         ui.add_space(18.);
         ui.strong(tr("settings.appearance"));
-        ui.label(tr("settings.appearance_detail"));
+        let previous = self.appearance;
+        ui.horizontal_wrapped(|ui| {
+            for (mode, key) in [
+                (theme::Appearance::System, "ui.theme_system"),
+                (theme::Appearance::Light, "ui.theme_light"),
+                (theme::Appearance::Dark, "ui.theme_dark"),
+            ] {
+                ui.selectable_value(&mut self.appearance, mode, tr(key));
+            }
+        });
+        if self.appearance != previous
+            && let Err(error) = preferences::save(self.language, self.appearance)
+        {
+            self.notice = tr("settings.save_failed").into();
+            self.log.push(error.to_string());
+        }
         ui.add_space(18.);
         ui.strong(tr("settings.about"));
         ui.label(format!(
             "Ferrite {} · Rust · Windows + Linux + macOS",
             ferrite_core::VERSION
         ));
-        ui.label(tr("settings.privacy"));
+
         ui.hyperlink_to(tr("settings.source"), "https://github.com/notnotshuts/1401");
         ui.hyperlink_to(
             tr("settings.licenses"),
@@ -776,33 +740,32 @@ impl App {
         );
     }
 }
-fn stat(ui: &mut egui::Ui, label: &str, value: &str, detail: &str) {
-    egui::Frame::new()
-        .fill(PANEL)
-        .corner_radius(3)
-        .inner_margin(12)
-        .show(ui, |ui| {
-            ui.set_min_width(ui.available_width() - 24.);
-            ui.label(RichText::new(label).size(11.).color(MUTED));
-            ui.label(RichText::new(value).size(20.).strong());
-            ui.label(RichText::new(detail).size(12.).color(MUTED));
-        });
-}
 fn empty(ui: &mut egui::Ui, title: &str, detail: &str) {
+    let colors = theme::palette(ui);
     ui.add_space(16.);
     ui.label(RichText::new(title).size(20.).strong());
-    ui.label(RichText::new(detail).color(MUTED));
+    ui.label(RichText::new(detail).color(colors.muted));
 }
-fn status_color(status: Status) -> Color32 {
+fn status_color(ui: &egui::Ui, status: Status) -> Color32 {
+    let colors = theme::palette(ui);
     match status {
-        Status::Supported => ACCENT,
-        Status::Driver | Status::Patched => WARNING,
-        Status::Unsupported => ERROR,
-        Status::Unknown => MUTED,
+        Status::Supported => colors.accent,
+        Status::Driver | Status::Patched => colors.warning,
+        Status::Unsupported => colors.error,
+        Status::Unknown => colors.muted,
     }
 }
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        let dark = match self.appearance {
+            theme::Appearance::Light => false,
+            theme::Appearance::Dark => true,
+            theme::Appearance::System => ctx.system_theme() == Some(egui::Theme::Dark),
+        };
+        if self.applied_dark != Some(dark) {
+            theme::apply(ctx, dark);
+            self.applied_dark = Some(dark);
+        }
         self.poll();
         if self.worker.is_some() {
             ctx.request_repaint_after(Duration::from_millis(100));
@@ -817,6 +780,8 @@ impl eframe::App for App {
             }
         }
         self.editor_shell(ctx);
+        #[cfg(feature = "screenshot")]
+        preview::capture(self, ctx);
     }
 }
 fn main() -> eframe::Result {
@@ -824,7 +789,7 @@ fn main() -> eframe::Result {
         "Ferrite",
         eframe::NativeOptions {
             viewport: egui::ViewportBuilder::default()
-                .with_inner_size([1240., 820.])
+                .with_inner_size(window_size())
                 .with_min_inner_size([760., 580.])
                 .with_title("Ferrite — OpenCore"),
             ..Default::default()
@@ -839,3 +804,14 @@ mod guide_ui;
 mod preferences;
 
 mod editor_ui;
+mod theme;
+
+fn window_size() -> [f32; 2] {
+    #[cfg(feature = "screenshot")]
+    if std::env::var("FERRITE_PREVIEW_COMPACT").as_deref() == Ok("1") {
+        return [780., 720.];
+    }
+    [1240., 820.]
+}
+#[cfg(feature = "screenshot")]
+mod preview;

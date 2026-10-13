@@ -1,0 +1,7 @@
+{
+  "CPU": {"Processor Name": "Intel Core i7-10700", "Manufacturer": "Intel", "Codename": "Comet Lake", "SIMD Features": "SSE4.1 SSE4.2 AVX2"},
+  "Motherboard": {"Name": "UI demonstration PC", "Platform": "Desktop"},
+  "GPU": {"AMD Radeon RX 6600": {"Manufacturer": "AMD", "Codename": "Navi 23", "Device Type": "Discrete GPU", "Device ID": "1002-73FF"}},
+  "Network": {"Intel I219-V": {"Device ID": "8086-15BC", "Bus Type": "PCI"}},
+  "Storage Controllers": {"Samsung NVMe": {"Device ID": "144D-A808", "Bus Type": "PCI", "Disk Drives": {"Demo SSD": {}}}}
+}

@@ -2,9 +2,9 @@ name: Ferrite Rust
 on:
   push:
     branches: [main, 'ferrite/**']
-    paths: ['Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', 'crates/**', 'tools/**', 'licenses/**', 'docs/**', 'README.md', 'NOTICE.md', 'LICENSE', '.github/workflows/ferrite.yml']
+    paths: ['Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', 'crates/**', 'vendor/**', 'tools/**', 'licenses/**', 'docs/**', 'README.md', 'NOTICE.md', 'LICENSE', '.github/workflows/ferrite.yml']
   pull_request:
-    paths: ['Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', 'crates/**', 'tools/**', 'licenses/**', 'docs/**', 'README.md', 'NOTICE.md', 'LICENSE', '.github/workflows/ferrite.yml']
+    paths: ['Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', 'crates/**', 'vendor/**', 'tools/**', 'licenses/**', 'docs/**', 'README.md', 'NOTICE.md', 'LICENSE', '.github/workflows/ferrite.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -28,7 +28,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Linux GUI dependencies
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y pkg-config libx11-dev libxi-dev libxcursor-dev libxrandr-dev libxinerama-dev libwayland-dev libxkbcommon-dev libgl1-mesa-dev acpica-tools
+        run: sudo apt-get update && sudo apt-get install -y pkg-config libx11-dev libxi-dev libxcursor-dev libxrandr-dev libxinerama-dev libwayland-dev libxkbcommon-dev libgl1-mesa-dev acpica-tools xvfb xauth
       - run: cargo fmt --all --check
       - run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - run: cargo test --workspace --locked
@@ -38,6 +38,20 @@ jobs:
         run: |
           target/release/ferrite-cli --help
           target/release/ferrite-cli --language en guide "$RUNNER_TEMP/Guide-en.md"
+      - name: Render UI previews
+        if: runner.os == 'Linux'
+        env:
+          LIBGL_ALWAYS_SOFTWARE: "1"
+        run: |
+          cargo build -p ferrite-desktop --features screenshot --locked
+          xvfb-run -a python3 tools/ui/screenshots.py target/debug/ferrite dist/ui
+      - name: UI screenshots
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: ui-screenshots
+          if-no-files-found: error
+          path: dist/ui/*.png
       - name: Package Linux
         if: runner.os == 'Linux'
         run: python3 tools/package.py --platform linux
@@ -133,7 +147,7 @@ jobs:
           (root / 'SHA256SUMS').write_text(''.join(f'{hashlib.file_digest(p.open("rb"), "sha256").hexdigest()}  {p.name}\n' for p in files))
           sha = os.environ['GITHUB_SHA']
           repo = os.environ['GITHUB_REPOSITORY']
-          pathlib.Path('release-notes.md').write_text(f'Ferrite {version} preview.\n\nLinux/Windows: распакуйте архив и держите GUI и CLI рядом. macOS: откройте DMG и перенесите приложение в Applications.\n\n[Инструкции и ограничения](https://github.com/{repo}/blob/{sha}/README.md). macOS поддерживает прямую запись USB с системным запросом прав администратора. Нативная запись проверена на отдельном виртуальном диске; проверка физических флешек остаётся отдельным этапом.\n\nСборки прошли fmt, строгий Clippy и Rust-тесты на Linux, Windows, macOS Intel и Apple Silicon. Загрузка macOS на физическом ПК этим не подтверждается.\n')
+          pathlib.Path('release-notes.md').write_text(f'Ferrite {version} preview.\n\nНовый интерфейс в стиле Apple: светлая, тёмная и системная темы, три этапа подготовки и меньше текста. [Скриншоты](https://github.com/{repo}/blob/{sha}/docs/ferrite/UI.md).\n\nLinux/Windows: распакуйте архив и держите GUI и CLI рядом. macOS: откройте DMG и перенесите приложение в Applications.\n\n[Инструкции и ограничения](https://github.com/{repo}/blob/{sha}/README.md). macOS поддерживает прямую запись USB с системным запросом прав администратора. Нативная запись проверена на отдельном виртуальном диске; проверка физических флешек остаётся отдельным этапом.\n\nСборки прошли fmt, строгий Clippy и Rust-тесты на Linux, Windows, macOS Intel и Apple Silicon. Загрузка macOS на физическом ПК этим не подтверждается.\n')
           with open(os.environ['GITHUB_ENV'], 'a') as env:
               env.write(f'FERRITE_VERSION={version}\nFERRITE_TAG=ferrite-v{version}-{sha[:12]}\n')
           PY

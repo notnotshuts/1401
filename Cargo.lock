@@ -1294,7 +1294,7 @@ dependencies = [
 
 [[package]]
 name = "ferrite-cli"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -1304,7 +1304,7 @@ dependencies = [
 
 [[package]]
 name = "ferrite-core"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "cc",
@@ -1326,11 +1326,12 @@ dependencies = [
 
 [[package]]
 name = "ferrite-desktop"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "eframe",
  "ferrite-core",
+ "image",
  "rfd",
  "serde",
  "serde_json",

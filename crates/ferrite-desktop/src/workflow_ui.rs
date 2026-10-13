@@ -9,8 +9,8 @@ impl App {
         planner::plan(report, &options)
     }
     pub(crate) fn build_workflow(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
-        ui.label(RichText::new(tr("build.title")).size(19.).strong());
-        ui.label(RichText::new(tr("build.subtitle")).color(MUTED));
+        let colors = theme::palette(ui);
+
         let busy = self.worker.is_some();
         let previous = serde_json::to_string(&self.options).unwrap_or_default();
         ui.add_enabled_ui(!busy, |ui| {
@@ -21,23 +21,28 @@ impl App {
                 {
                     self.acpi_folder = Some(path);
                     self.build_result = None;
+                    self.recovery_result = None;
                 }
             });
             if let Some(path) = &self.acpi_folder {
                 ui.label(
                     RichText::new(format!("ACPI: {}", path.display()))
                         .size(12.)
-                        .color(MUTED),
+                        .color(colors.muted),
                 );
             } else {
-                ui.label(RichText::new(tr("build.acpi_required")).color(WARNING));
+                ui.label(RichText::new(tr("build.acpi_required")).color(colors.warning));
             }
             egui::CollapsingHeader::new(tr("build.advanced")).show(ui, |ui| {
                 ui.horizontal(|ui| {
                     ui.label("iasl");
                     ui.text_edit_singleline(&mut self.iasl);
                 });
-                ui.label(RichText::new(tr("build.iasl_help")).size(12.).color(MUTED));
+                ui.label(
+                    RichText::new(tr("build.iasl_help"))
+                        .size(12.)
+                        .color(colors.muted),
+                );
                 ui.checkbox(&mut self.options.verbose, tr("build.verbose"));
                 if let Some(report) = &self.report {
                     let gpus = report.rows("GPU");
@@ -77,7 +82,11 @@ impl App {
                             }
                         });
                 });
-                ui.label(RichText::new(tr("build.wifi_help")).size(12.).color(MUTED));
+                ui.label(
+                    RichText::new(tr("build.wifi_help"))
+                        .size(12.)
+                        .color(colors.muted),
+                );
             });
         });
         if previous != serde_json::to_string(&self.options).unwrap_or_default() {
@@ -87,10 +96,10 @@ impl App {
         match self.preview_plan() {
             Ok(plan) => {
                 egui::Frame::new()
-                    .fill(PANEL)
-                    .stroke(egui::Stroke::new(1_f32, BORDER))
-                    .corner_radius(3)
-                    .inner_margin(12)
+                    .fill(colors.panel)
+                    .stroke(egui::Stroke::new(1_f32, colors.border))
+                    .corner_radius(18)
+                    .inner_margin(20)
                     .show(ui, |ui| {
                         ui.horizontal_wrapped(|ui| {
                             ui.strong(format!("SMBIOS {}", plan.smbios));
@@ -110,34 +119,35 @@ impl App {
                                 ],
                             ));
                         });
-                        egui::CollapsingHeader::new(tr("build.details")).show(ui, |ui| {
-                            ui.label(
-                                RichText::new(
-                                    plan.kexts
-                                        .iter()
-                                        .map(|k| k.name.as_str())
-                                        .collect::<Vec<_>>()
-                                        .join(" · "),
-                                )
-                                .size(12.)
-                                .color(MUTED),
-                            );
-                        });
+                        egui::CollapsingHeader::new(tr("build.details"))
+                            .id_salt("plan-details")
+                            .show(ui, |ui| {
+                                ui.label(
+                                    RichText::new(
+                                        plan.kexts
+                                            .iter()
+                                            .map(|k| k.name.as_str())
+                                            .collect::<Vec<_>>()
+                                            .join(" · "),
+                                    )
+                                    .size(12.)
+                                    .color(colors.muted),
+                                );
+                            });
                         if !plan.disabled.is_empty() {
                             ui.label(
                                 RichText::new(tf(
                                     "build.disabled",
                                     &[("0", plan.disabled.join(", ").to_string())],
                                 ))
-                                .color(WARNING),
+                                .color(colors.warning),
                             );
                         }
                     });
                 if ui
                     .add_enabled(
                         !busy && self.acpi_folder.is_some(),
-                        egui::Button::new(RichText::new(tr("action.build_efi")).color(BG))
-                            .fill(ACCENT),
+                        theme::primary(tr("action.build_efi"), ui),
                     )
                     .clicked()
                 {
@@ -175,26 +185,22 @@ impl App {
                     } else {
                         "build.report_required"
                     }))
-                    .color(WARNING),
+                    .color(colors.warning),
                 );
                 guide_ui::diagnostic(ui, std::iter::once(error.to_string().as_str()));
             }
         }
         if let Some(build) = &self.build_result {
             ui.add_space(14.);
-            ui.label(RichText::new(tr("build.ready")).color(ACCENT));
-            ui.monospace(build.output.display().to_string());
+            ui.label(RichText::new(tr("build.ready")).color(colors.accent));
+            egui::CollapsingHeader::new(tr("build.details"))
+                .id_salt("build-output")
+                .show(ui, |ui| {
+                    ui.monospace(build.output.display().to_string());
+                });
             if ui.button(tr("action.open_guide")).clicked() {
                 self.page = Page::Guide;
             }
-            ui.label(
-                RichText::new(tf(
-                    "build.generated",
-                    &[("0", build.acpi.generated.join(", ").to_string())],
-                ))
-                .size(12.)
-                .color(MUTED),
-            );
             egui::CollapsingHeader::new(tr("build.check_after")).show(ui, |ui| {
                 ui.label(tr("build.review_required"));
                 guide_ui::diagnostic(
@@ -225,17 +231,58 @@ impl App {
         ui.add_space(18.);
     }
     pub(crate) fn usb_workflow(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
-        ui.label(RichText::new(tr("usb.title")).size(19.).strong());
+        let colors = theme::palette(ui);
         let busy = self.worker.is_some();
-        if !ferrite_core::platform::physical_usb_supported() {
-            ui.label(RichText::new(tr("mac.usb_image_only")).color(MUTED));
+        ui.horizontal(|ui| {
+            ui.label(RichText::new(tr("ui.choose_usb")).size(22.).strong());
+            if ui
+                .add_enabled(!busy, egui::Button::new(tr("action.refresh_drives")))
+                .clicked()
+            {
+                self.start(ctx, || Ok(Message::Disks(disks::list()?)));
+            }
+        });
+        let previous_selection = self.selected_disk.clone();
+        for disk in self.disks.iter().filter(|d| d.eligible()) {
+            theme::card(ui).inner_margin(16).show(ui, |ui| {
+                ui.add_enabled_ui(!busy, |ui| {
+                    ui.radio_value(
+                        &mut self.selected_disk,
+                        Some(disk.path.clone()),
+                        format!("{} · {:.1} GiB", disk.model, disk.size as f64 / 1073741824.),
+                    );
+                    ui.label(RichText::new(&disk.path).size(13.).color(colors.muted));
+                });
+            });
         }
+        if self.selected_disk != previous_selection {
+            self.confirmation.clear();
+        }
+        if !self.disks.iter().any(|d| d.eligible()) {
+            theme::card(ui).show(ui, |ui| {
+                ui.label(RichText::new(tr("ui.no_drives")).color(colors.muted));
+            });
+        }
+        if self.disks.iter().any(|d| !d.eligible()) {
+            egui::CollapsingHeader::new(tr("ui.excluded_drives")).show(ui, |ui| {
+                for disk in self.disks.iter().filter(|d| !d.eligible()) {
+                    ui.strong(format!("{} · {}", disk.path, disk.model));
+                    for reason in &disk.reasons {
+                        ui.label(RichText::new(reason).size(13.).color(colors.warning));
+                    }
+                }
+            });
+        }
+        ui.add_space(16.);
         if self.build_result.is_none() {
-            ui.label(RichText::new(tr("usb.build_required")).color(MUTED));
+            ui.label(RichText::new(tr("ui.build_first")).color(colors.muted));
+            if ui.add(theme::primary(tr("action.build_efi"), ui)).clicked() {
+                self.page = Page::Efi;
+            }
             return;
         }
         if self.recovery_result.is_none() {
-            ui.label(RichText::new(tr("usb.recovery_required")).color(MUTED));
+            ui.label(RichText::new(tr("usb.recovery_required")).color(colors.muted));
             if ui
                 .add_enabled(!busy, egui::Button::new(tr("action.download_recovery")))
                 .clicked()
@@ -265,28 +312,8 @@ impl App {
                     ("1", format!("{}", recovery.chunks)),
                 ],
             ))
-            .color(ACCENT),
+            .color(colors.accent),
         );
-        if ui
-            .add_enabled(!busy, egui::Button::new(tr("action.refresh_drives")))
-            .clicked()
-        {
-            self.start(ctx, || Ok(Message::Disks(disks::list()?)));
-        }
-        for disk in &self.disks {
-            ui.add_enabled_ui(disk.eligible() && !busy, |ui| {
-                ui.radio_value(
-                    &mut self.selected_disk,
-                    Some(disk.path.clone()),
-                    format!(
-                        "{} · {:.1} GiB · {}",
-                        disk.path,
-                        disk.size as f64 / 1073741824.,
-                        disk.model
-                    ),
-                );
-            });
-        }
         let selected = self
             .disks
             .iter()
@@ -294,23 +321,34 @@ impl App {
             .cloned();
         if let Some(disk) = selected {
             egui::Frame::new()
-                .fill(CARD)
-                .corner_radius(3)
-                .inner_margin(12)
+                .fill(colors.card)
+                .corner_radius(18)
+                .inner_margin(20)
                 .show(ui, |ui| {
-                    ui.label(RichText::new(tr("usb.erase_warning")).strong().color(ERROR));
+                    ui.label(
+                        RichText::new(tr("usb.erase_warning"))
+                            .strong()
+                            .color(colors.error),
+                    );
                     ui.label(tf(
                         "usb.identity",
                         &[("0", disk.path.to_string()), ("1", disk.serial.to_string())],
                     ));
                     ui.label(tr("usb.confirm_hint"));
-                    ui.text_edit_singleline(&mut self.confirmation);
+                    ui.add(
+                        egui::TextEdit::singleline(&mut self.confirmation)
+                            .margin(Vec2::new(12., 12.))
+                            .desired_width(ui.available_width().min(420.)),
+                    );
                 });
             let ready = !busy && disk.eligible() && self.confirmation == disk.path;
             if ui
                 .add_enabled(
                     ready,
-                    egui::Button::new(tr("action.write_usb")).fill(Color32::from_rgb(108, 46, 53)),
+                    egui::Button::new(RichText::new(tr("action.write_usb")).color(Color32::WHITE))
+                        .fill(Color32::from_rgb(194, 43, 42))
+                        .corner_radius(22)
+                        .min_size(Vec2::new(180., 46.)),
                 )
                 .clicked()
             {
@@ -359,13 +397,18 @@ impl App {
                     if !written.verified {
                         anyhow::bail!(tr("usb.verify_failed"));
                     }
-                    Ok(Message::Written(tf(
+                    let completed = tf(
                         "usb.written",
                         &[
                             ("0", written.device.to_string()),
                             ("1", format!("{}", written.files)),
                         ],
-                    )))
+                    );
+                    Ok(Message::Written(if written.notices.is_empty() {
+                        completed
+                    } else {
+                        format!("{completed} {}", written.notices.join(" "))
+                    }))
                 });
             }
         }

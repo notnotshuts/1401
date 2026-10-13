@@ -10,262 +10,159 @@ const PAGES: [Page; 7] = [
 ];
 impl App {
     pub(crate) fn editor_shell(&mut self, ctx: &egui::Context) {
-        let palette_shortcut = egui::KeyboardShortcut::new(
-            egui::Modifiers::COMMAND | egui::Modifiers::SHIFT,
-            egui::Key::P,
-        );
-        if ctx.input_mut(|i| i.consume_shortcut(&palette_shortcut)) {
+        let colors = theme::colors(ctx.style().visuals.dark_mode);
+        if ctx.input_mut(|i| {
+            i.consume_shortcut(&egui::KeyboardShortcut::new(
+                egui::Modifiers::COMMAND | egui::Modifiers::SHIFT,
+                egui::Key::P,
+            ))
+        }) {
             self.palette_open = !self.palette_open;
             self.palette_query.clear();
         }
-        if ctx.input_mut(|i| {
-            i.consume_shortcut(&egui::KeyboardShortcut::new(
-                egui::Modifiers::COMMAND,
-                egui::Key::W,
-            ))
-        }) && self.tabs.len() > 1
-        {
-            self.tabs.retain(|p| *p != self.page);
-            self.page = *self.tabs.last().unwrap_or(&Page::Overview);
-        }
-        if !self.tabs.contains(&self.page) {
-            self.tabs.push(self.page);
-        }
-        let narrow = ctx.screen_rect().width() < 950.;
-        egui::TopBottomPanel::top("workspace-toolbar")
+        let compact = ctx.screen_rect().width() < 900.;
+        egui::TopBottomPanel::top("toolbar")
             .frame(
                 egui::Frame::new()
-                    .fill(PANEL)
-                    .inner_margin(egui::Margin::symmetric(12, 6)),
+                    .fill(colors.bg)
+                    .inner_margin(egui::Margin::symmetric(24, 12)),
             )
             .show(ctx, |ui| {
                 ui.horizontal(|ui| {
-                    ui.label(RichText::new("Ferrite").strong());
-                    ui.label(RichText::new("/  OpenCore").color(MUTED).size(12.));
+                    ui.label(RichText::new("Ferrite").size(22.).strong());
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        self.language_picker(ui);
                         if ui
-                            .button(tr("editor.commands"))
-                            .on_hover_text(if cfg!(target_os = "macos") {
-                                "⌘⇧P"
-                            } else {
-                                "Ctrl+Shift+P"
-                            })
+                            .button("···")
+                            .on_hover_text(tr("editor.commands"))
                             .clicked()
                         {
                             self.palette_open = true;
-                            self.palette_query.clear();
+                        }
+                        if compact {
+                            if ui.button(tr("nav.settings")).clicked() {
+                                self.page = Page::Settings;
+                            }
+                            if ui.button(tr("nav.log")).clicked() {
+                                self.page = Page::Log;
+                            }
                         }
                     });
                 });
-            });
-        egui::TopBottomPanel::bottom("status")
-            .frame(
-                egui::Frame::new()
-                    .fill(PANEL)
-                    .inner_margin(egui::Margin::symmetric(12, 4)),
-            )
-            .show(ctx, |ui| {
-                if let Some(p) = self.progress {
-                    ui.add(egui::ProgressBar::new(p.clamp(0., 1.)).desired_height(3.));
+                if compact {
+                    ui.add_space(8.);
+                    ui.horizontal_wrapped(|ui| {
+                        for page in [
+                            Page::Overview,
+                            Page::Hardware,
+                            Page::Efi,
+                            Page::Usb,
+                            Page::Guide,
+                        ] {
+                            ui.selectable_value(&mut self.page, page, page.title());
+                        }
+                    });
                 }
-                ui.horizontal(|ui| {
-                    if self.worker.is_some() {
-                        ui.spinner();
-                    } else {
-                        ui.label(RichText::new("•").color(ACCENT));
-                    }
+            });
+        if !compact {
+            egui::SidePanel::left("navigation")
+                .resizable(false)
+                .exact_width(226.)
+                .frame(
+                    egui::Frame::new()
+                        .fill(colors.bg)
+                        .inner_margin(egui::Margin::symmetric(16, 12)),
+                )
+                .show(ctx, |ui| {
+                    theme::glass(ui).inner_margin(12).show(ui, |ui| {
+                        for page in [Page::Overview, Page::Hardware, Page::Efi, Page::Usb] {
+                            if nav(ui, page, self.page == page, true).clicked() {
+                                self.page = page;
+                            }
+                        }
+                        ui.add_space(20.);
+                        for page in [Page::Guide, Page::Log, Page::Settings] {
+                            if nav(ui, page, self.page == page, true).clicked() {
+                                self.page = page;
+                            }
+                        }
+                    });
+                    ui.add_space(16.);
                     ui.label(
-                        RichText::new(if self.notice.is_empty() {
-                            tr("task.ready")
-                        } else {
-                            &self.notice
-                        })
-                        .size(11.)
-                        .color(MUTED),
+                        RichText::new(format!(
+                            "{}  ·  {}",
+                            ferrite_core::platform::host_name(),
+                            ferrite_core::VERSION
+                        ))
+                        .size(12.)
+                        .color(colors.muted),
                     );
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        ui.label(
-                            RichText::new(format!(
-                                "{}  ·  {}",
-                                ferrite_core::platform::host_name(),
-                                ferrite_core::VERSION
-                            ))
-                            .size(11.)
-                            .color(MUTED),
-                        );
-                    });
                 });
-            });
-        egui::SidePanel::left("navigation")
-            .resizable(true)
-            .default_width(if narrow { 174. } else { 210. })
-            .width_range(160. ..=300.)
-            .frame(egui::Frame::new().fill(PANEL).inner_margin(10))
-            .show(ctx, |ui| {
-                ui.add_space(4.);
-                ui.horizontal(|ui| {
-                    ui.label(RichText::new(tr("editor.project")).size(11.).color(MUTED));
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        if ui
-                            .small_button("+")
-                            .on_hover_text(tr("action.import"))
-                            .clicked()
-                            && self.worker.is_none()
-                        {
-                            self.choose_report(ctx);
-                        }
-                    });
-                });
-                ui.add_space(10.);
-                ui.label(RichText::new("⌄  ferrite").monospace().strong());
-                ui.add_space(4.);
-                ui.indent("project-tree", |ui| {
-                    for (index, page) in PAGES.into_iter().enumerate() {
-                        let selected = self.page == page;
-                        let text = format!("{:02}  {}", index + 1, page.title());
-                        let button = egui::Button::new(RichText::new(text).color(if selected {
-                            TEXT
-                        } else {
-                            MUTED
-                        }))
-                        .fill(if selected { CARD } else { PANEL })
-                        .stroke(egui::Stroke::NONE)
-                        .min_size(Vec2::new(ui.available_width(), 29.));
-                        if ui.add(button).clicked() {
-                            self.page = page;
-                        }
-                    }
-                });
-                ui.add_space(18.);
-                ui.separator();
-                ui.add_space(8.);
-                ui.label(RichText::new(tr("editor.report")).size(11.).color(MUTED));
-                if self.source.is_empty() {
-                    ui.label(RichText::new(tr("editor.no_report")).size(12.).color(MUTED));
-                } else {
-                    let filename = std::path::Path::new(&self.source)
-                        .file_name()
-                        .unwrap_or_default()
-                        .to_string_lossy();
-                    ui.label(RichText::new(filename).monospace().size(12.));
-                    if let Some(report) = &self.report {
-                        ui.label(
-                            RichText::new(format!(
-                                "SHA  {}",
-                                &report.sha256[..report.sha256.len().min(10)]
-                            ))
-                            .monospace()
-                            .size(11.)
-                            .color(MUTED),
-                        );
-                    }
-                }
-                ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
-                    if ui.button(tr("action.open_guide")).clicked() {
-                        self.page = Page::Guide;
-                    }
-                });
-            });
-        egui::CentralPanel::default()
-            .frame(egui::Frame::new().fill(BG).inner_margin(0))
-            .show(ctx, |ui| {
-                egui::Frame::new()
-                    .fill(PANEL)
-                    .inner_margin(egui::Margin::symmetric(4, 0))
-                    .show(ui, |ui| {
-                        egui::ScrollArea::horizontal()
-                            .id_salt("editor-tabs")
-                            .show(ui, |ui| {
-                                ui.horizontal(|ui| {
-                                    for page in self.tabs.clone() {
-                                        let active = self.page == page;
-                                        let frame = egui::Frame::new()
-                                            .fill(if active { BG } else { PANEL })
-                                            .inner_margin(egui::Margin::symmetric(10, 7));
-                                        let response = frame
-                                            .show(ui, |ui| {
-                                                ui.horizontal(|ui| {
-                                                    if ui
-                                                        .add(
-                                                            egui::Button::new(
-                                                                RichText::new(page.title())
-                                                                    .size(12.)
-                                                                    .color(if active {
-                                                                        TEXT
-                                                                    } else {
-                                                                        MUTED
-                                                                    }),
-                                                            )
-                                                            .frame(false),
-                                                        )
-                                                        .clicked()
-                                                    {
-                                                        self.page = page;
-                                                    }
-                                                    if self.tabs.len() > 1
-                                                        && ui.small_button("×").clicked()
-                                                    {
-                                                        self.tabs.retain(|p| *p != page);
-                                                        if self.page == page {
-                                                            self.page = *self
-                                                                .tabs
-                                                                .last()
-                                                                .unwrap_or(&Page::Overview);
-                                                        }
-                                                    }
-                                                });
-                                            })
-                                            .response;
-                                        if active {
-                                            ui.painter().line_segment(
-                                                [
-                                                    response.rect.left_bottom(),
-                                                    response.rect.right_bottom(),
-                                                ],
-                                                egui::Stroke::new(2_f32, ACCENT),
-                                            );
-                                        }
-                                    }
-                                });
-                            });
-                    });
-                ui.add_space(12.);
-                egui::Frame::new()
-                    .inner_margin(egui::Margin::symmetric(if narrow { 16 } else { 24 }, 0))
-                    .show(ui, |ui| {
+        }
+        if self.worker.is_some() || !self.notice.is_empty() {
+            egui::TopBottomPanel::bottom("activity")
+                .frame(
+                    egui::Frame::new()
+                        .fill(colors.bg)
+                        .inner_margin(egui::Margin::symmetric(24, 12)),
+                )
+                .show(ctx, |ui| {
+                    theme::glass(ui).inner_margin(14).show(ui, |ui| {
                         ui.horizontal(|ui| {
-                            ui.label(
-                                RichText::new(format!("ferrite  /  {}", self.page.title()))
-                                    .size(11.)
-                                    .color(MUTED),
+                            if self.worker.is_some() {
+                                ui.spinner();
+                            }
+                            ui.add(
+                                egui::Label::new(RichText::new(&self.notice).size(14.)).truncate(),
+                            )
+                            .on_hover_text(&self.notice);
+                            ui.with_layout(
+                                egui::Layout::right_to_left(egui::Align::Center),
+                                |ui| {
+                                    if ui.small_button(tr("nav.log")).clicked() {
+                                        self.page = Page::Log;
+                                    }
+                                },
                             );
                         });
-                        ui.add_space(12.);
-                        egui::ScrollArea::vertical()
-                            .auto_shrink([false, false])
-                            .show(ui, |ui| {
-                                ui.set_max_width(ui.available_width().min(1020.));
-                                if self.page != Page::Overview {
-                                    ui.label(RichText::new(self.page.title()).size(20.).strong());
-                                    ui.add_space(12.);
-                                }
-                                match self.page {
-                                    Page::Overview => self.overview(ui, ctx),
-                                    Page::Hardware => self.hardware(ui, ctx),
-                                    Page::Guide => self.guide(ui),
-                                    Page::Efi => self.efi(ui, ctx),
-                                    Page::Usb => self.usb(ui, ctx),
-                                    Page::Log => self.logs(ui, ctx),
-                                    Page::Settings => self.settings(ui, ctx),
-                                }
-                                ui.add_space(20.);
-                            });
+                        if let Some(progress) = self.progress {
+                            ui.add(
+                                egui::ProgressBar::new(progress.clamp(0., 1.)).desired_height(5.),
+                            );
+                        }
+                    });
+                });
+        }
+        egui::CentralPanel::default()
+            .frame(
+                egui::Frame::new()
+                    .fill(colors.bg)
+                    .inner_margin(egui::Margin::symmetric(28, 20)),
+            )
+            .show(ctx, |ui| {
+                egui::ScrollArea::vertical()
+                    .auto_shrink([false, false])
+                    .show(ui, |ui| {
+                        ui.set_max_width(940.);
+                        if self.page != Page::Overview {
+                            ui.label(RichText::new(self.page.title()).size(34.).strong());
+                            ui.add_space(20.);
+                        }
+                        match self.page {
+                            Page::Overview => self.overview(ui, ctx),
+                            Page::Hardware => self.hardware(ui, ctx),
+                            Page::Guide => self.guide(ui),
+                            Page::Efi => self.efi(ui, ctx),
+                            Page::Usb => self.usb(ui, ctx),
+                            Page::Log => self.logs(ui, ctx),
+                            Page::Settings => self.settings(ui, ctx),
+                        }
+                        ui.add_space(24.);
                     });
             });
         self.command_palette(ctx);
     }
     fn command_palette(&mut self, ctx: &egui::Context) {
+        let colors = theme::colors(ctx.style().visuals.dark_mode);
         if !self.palette_open {
             return;
         }
@@ -332,7 +229,7 @@ impl App {
                 }
                 for (i, (title, action)) in filtered.into_iter().enumerate() {
                     let (rect, response) = ui.allocate_exact_size(
-                        Vec2::new(ui.available_width(), 28.),
+                        Vec2::new(ui.available_width(), 44.),
                         egui::Sense::click(),
                     );
                     response.widget_info(|| {
@@ -341,11 +238,11 @@ impl App {
                     if self.palette_index == i || response.hovered() {
                         ui.painter().rect_filled(
                             rect,
-                            3,
+                            12,
                             if self.palette_index == i {
-                                ACCENT.gamma_multiply(0.18)
+                                colors.accent.gamma_multiply(0.18)
                             } else {
-                                CARD
+                                colors.card
                             },
                         );
                     }
@@ -353,8 +250,8 @@ impl App {
                         rect.left_center() + Vec2::new(10., 0.),
                         egui::Align2::LEFT_CENTER,
                         title,
-                        egui::FontId::proportional(13.),
-                        TEXT,
+                        egui::FontId::proportional(16.),
+                        colors.text,
                     );
                     if response
                         .on_hover_cursor(egui::CursorIcon::PointingHand)
@@ -373,6 +270,114 @@ impl App {
                 Action::Scan => self.scan(ctx),
                 Action::Import => self.choose_report(ctx),
             }
+        }
+    }
+}
+
+fn nav(ui: &mut egui::Ui, page: Page, selected: bool, full: bool) -> egui::Response {
+    let c = theme::palette(ui);
+    let width = if full {
+        ui.available_width()
+    } else {
+        ui.fonts(|f| {
+            f.layout_no_wrap(page.title().into(), egui::FontId::proportional(15.), c.text)
+                .size()
+                .x
+        }) + 28.
+    };
+    let (rect, response) = ui.allocate_exact_size(Vec2::new(width, 46.), egui::Sense::click());
+    response.widget_info(|| {
+        egui::WidgetInfo::labeled(egui::WidgetType::SelectableLabel, true, page.title())
+    });
+    let hover = ui
+        .ctx()
+        .animate_bool(response.id.with("hover"), response.hovered());
+    if selected || hover > 0.01 {
+        ui.painter().rect_filled(
+            rect,
+            14,
+            if selected {
+                c.accent.gamma_multiply(0.14)
+            } else {
+                c.card.gamma_multiply(hover)
+            },
+        );
+    }
+    let color = if selected { c.accent } else { c.text };
+    let x = if full {
+        icon(
+            ui.painter(),
+            egui::Rect::from_min_size(rect.left_center() + Vec2::new(12., -10.), Vec2::splat(20.)),
+            page,
+            color,
+        );
+        44.
+    } else {
+        14.
+    };
+    ui.painter().text(
+        rect.left_center() + Vec2::new(x, 0.),
+        egui::Align2::LEFT_CENTER,
+        page.title(),
+        egui::FontId::proportional(15.),
+        color,
+    );
+    response.on_hover_cursor(egui::CursorIcon::PointingHand)
+}
+fn icon(painter: &egui::Painter, rect: egui::Rect, page: Page, color: Color32) {
+    let stroke = egui::Stroke::new(1.7_f32, color);
+    let point = |x: f32, y: f32| rect.min + Vec2::new(x, y);
+    match page {
+        Page::Overview => {
+            for (x, y) in [(1., 1.), (12., 1.), (1., 12.), (12., 12.)] {
+                painter.rect_stroke(
+                    egui::Rect::from_min_size(point(x, y), Vec2::splat(7.)),
+                    2,
+                    stroke,
+                    egui::StrokeKind::Inside,
+                );
+            }
+        }
+        Page::Hardware => {
+            painter.rect_stroke(rect.shrink(4.), 3, stroke, egui::StrokeKind::Inside);
+            for v in [6., 10., 14.] {
+                for (a, b) in [
+                    (point(v, 0.), point(v, 4.)),
+                    (point(v, 16.), point(v, 20.)),
+                    (point(0., v), point(4., v)),
+                    (point(16., v), point(20., v)),
+                ] {
+                    painter.line_segment([a, b], stroke);
+                }
+            }
+        }
+        Page::Usb => {
+            painter.rect_stroke(
+                rect.shrink2(Vec2::new(5., 1.)),
+                3,
+                stroke,
+                egui::StrokeKind::Inside,
+            );
+            painter.line_segment([point(5., 8.), point(15., 8.)], stroke);
+            painter.circle_filled(point(10., 15.), 1.3, color);
+        }
+        Page::Efi => {
+            painter.circle_stroke(rect.center(), 8., stroke);
+            painter.line_segment([point(10., 4.), point(10., 10.)], stroke);
+            painter.line_segment([point(10., 10.), point(14., 13.)], stroke);
+        }
+        Page::Guide => {
+            painter.rect_stroke(rect.shrink(1.), 3, stroke, egui::StrokeKind::Inside);
+            painter.line_segment([point(10., 2.), point(10., 18.)], stroke);
+        }
+        Page::Log => {
+            for y in [4., 10., 16.] {
+                painter.line_segment([point(2., y), point(18., y)], stroke);
+            }
+        }
+        Page::Settings => {
+            painter.circle_stroke(rect.center(), 8., stroke);
+            painter.circle_stroke(rect.center(), 3., stroke);
         }
     }
 }

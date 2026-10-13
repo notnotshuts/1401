@@ -16,6 +16,8 @@ fn path() -> PathBuf {
 #[derive(serde::Serialize, serde::Deserialize)]
 struct Preferences {
     language: Language,
+    #[serde(default)]
+    appearance: crate::theme::Appearance,
 }
 pub fn load() -> Language {
     if let Ok(raw) = fs::read(path())
@@ -46,17 +48,31 @@ pub fn load() -> Language {
             .unwrap_or_else(|| "ru".into()),
     )
 }
-pub fn save(language: Language) -> anyhow::Result<()> {
-    save_to(&path(), language)
+pub fn load_appearance() -> crate::theme::Appearance {
+    fs::read(path())
+        .ok()
+        .and_then(|raw| serde_json::from_slice::<Preferences>(&raw).ok())
+        .map(|p| p.appearance)
+        .unwrap_or_default()
 }
-fn save_to(path: &std::path::Path, language: Language) -> anyhow::Result<()> {
+pub fn save(language: Language, appearance: crate::theme::Appearance) -> anyhow::Result<()> {
+    save_to(&path(), language, appearance)
+}
+fn save_to(
+    path: &std::path::Path,
+    language: Language,
+    appearance: crate::theme::Appearance,
+) -> anyhow::Result<()> {
     let parent = path
         .parent()
         .ok_or_else(|| anyhow::anyhow!("preferences directory"))?;
     fs::create_dir_all(parent)?;
     let mut file = tempfile::NamedTempFile::new_in(parent)?;
     use std::io::Write;
-    file.write_all(&serde_json::to_vec_pretty(&Preferences { language })?)?;
+    file.write_all(&serde_json::to_vec_pretty(&Preferences {
+        language,
+        appearance,
+    })?)?;
     file.as_file().sync_all()?;
     file.persist(path)?;
     Ok(())
@@ -66,12 +82,18 @@ fn save_to(path: &std::path::Path, language: Language) -> anyhow::Result<()> {
 mod tests {
     use super::*;
     #[test]
+    fn old_language_file_defaults_to_system_theme() {
+        let old: Preferences = serde_json::from_str(r#"{"language":"en"}"#).unwrap();
+        assert_eq!(old.appearance, crate::theme::Appearance::System);
+    }
+    #[test]
     fn preference_round_trip_and_replacement() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("preferences.json");
-        save_to(&path, Language::En).unwrap();
-        save_to(&path, Language::Es).unwrap();
+        save_to(&path, Language::En, crate::theme::Appearance::Light).unwrap();
+        save_to(&path, Language::Es, crate::theme::Appearance::Dark).unwrap();
         let p: Preferences = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
         assert_eq!(p.language, Language::Es);
+        assert_eq!(p.appearance, crate::theme::Appearance::Dark);
     }
 }

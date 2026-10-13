@@ -9,7 +9,7 @@ name = "ferrite"
 path = "src/main.rs"
 
 [features]
-screenshot = ["eframe/__screenshot"]
+screenshot = ["dep:image"]
 
 [dependencies]
 ferrite-core.workspace = true
@@ -19,3 +19,5 @@ tempfile = "3"
 anyhow.workspace = true
 eframe = { version = "=0.32.3", default-features = false, features = ["default_fonts", "glow", "x11", "wayland", "accesskit"] }
 rfd = "0.15"
+
+image = { version = "0.25", default-features = false, features = ["png"], optional = true }

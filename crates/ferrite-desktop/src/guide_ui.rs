@@ -13,14 +13,15 @@ impl App {
         if self.language != previous {
             i18n::set_language(self.language);
             self.notice = tr("task.ready").into();
-            if let Err(error) = preferences::save(self.language) {
+            if let Err(error) = preferences::save(self.language, self.appearance) {
                 self.notice = tr("settings.save_failed").into();
                 self.log.push(error.to_string());
             }
         }
     }
     pub(crate) fn guide(&mut self, ui: &mut egui::Ui) {
-        ui.label(RichText::new(tr("guide.subtitle")).color(MUTED));
+        let colors = theme::palette(ui);
+
         if let Some(build) = &self.build_result {
             ui.label(tf(
                 "guide.context",
@@ -48,68 +49,76 @@ impl App {
         for (step, (title, body)) in guide::STEPS.iter().enumerate() {
             ui.add_space(12.);
             egui::Frame::new()
-                .fill(PANEL)
-                .corner_radius(3)
-                .inner_margin(12)
+                .fill(colors.panel)
+                .corner_radius(18)
+                .inner_margin(20)
                 .show(ui, |ui| {
                     ui.set_min_width(ui.available_width() - 24.);
-                    ui.label(RichText::new(tr(title)).size(18.).strong());
-                    ui.label(tr(body));
-                    if step == 1 {
-                        ui.label(
-                            RichText::new(tr("guide.bios.check_hint"))
-                                .size(12.)
-                                .color(MUTED),
-                        );
-                        let amd = self.report.as_ref().is_some_and(|r| {
-                            r.hardware["CPU"]["Manufacturer"]
-                                .as_str()
-                                .is_some_and(|s| s.contains("AMD"))
+                    egui::CollapsingHeader::new(RichText::new(tr(title)).size(19.).strong())
+                        .id_salt(("guide-step", step))
+                        .default_open(step == 0)
+                        .show(ui, |ui| {
+                            ui.label(tr(body));
+                            if step == 1 {
+                                ui.label(
+                                    RichText::new(tr("guide.bios.check_hint"))
+                                        .size(12.)
+                                        .color(colors.muted),
+                                );
+                                let amd = self.report.as_ref().is_some_and(|r| {
+                                    r.hardware["CPU"]["Manufacturer"]
+                                        .as_str()
+                                        .is_some_and(|s| s.contains("AMD"))
+                                });
+                                let count = if amd { 7 } else { 8 };
+                                for (i, key) in guide::BIOS.iter().take(count).enumerate() {
+                                    ui.checkbox(&mut self.bios_checks[i], tr(key));
+                                }
+                                ui.label(
+                                    RichText::new(tf(
+                                        "guide.bios.progress",
+                                        &[
+                                            (
+                                                "0",
+                                                self.bios_checks[..count]
+                                                    .iter()
+                                                    .filter(|v| **v)
+                                                    .count()
+                                                    .to_string(),
+                                            ),
+                                            ("1", count.to_string()),
+                                        ],
+                                    ))
+                                    .color(colors.muted),
+                                );
+                            }
+                            let action = match step {
+                                0 => Some(("guide.step1.action", Page::Hardware)),
+                                2 => Some(("guide.step3.action", Page::Efi)),
+                                3 | 4 => Some(("guide.step4.action", Page::Usb)),
+                                _ => None,
+                            };
+                            if let Some((key, page)) = action
+                                && ui.button(tr(key)).clicked()
+                            {
+                                self.page = page;
+                            }
+                            if step == 4 {
+                                ui.label(
+                                    RichText::new(tr("guide.step5.warning")).color(colors.warning),
+                                );
+                            }
+                            if step == 5 {
+                                if self.build_result.as_ref().is_some_and(|b| b.plan.nvidia) {
+                                    ui.label(
+                                        RichText::new(tr("guide.nvidia")).color(colors.warning),
+                                    );
+                                }
+                                for (i, key) in guide::CHECKS.iter().enumerate() {
+                                    ui.checkbox(&mut self.install_checks[i], tr(key));
+                                }
+                            }
                         });
-                        let count = if amd { 7 } else { 8 };
-                        for (i, key) in guide::BIOS.iter().take(count).enumerate() {
-                            ui.checkbox(&mut self.bios_checks[i], tr(key));
-                        }
-                        ui.label(
-                            RichText::new(tf(
-                                "guide.bios.progress",
-                                &[
-                                    (
-                                        "0",
-                                        self.bios_checks[..count]
-                                            .iter()
-                                            .filter(|v| **v)
-                                            .count()
-                                            .to_string(),
-                                    ),
-                                    ("1", count.to_string()),
-                                ],
-                            ))
-                            .color(MUTED),
-                        );
-                    }
-                    let action = match step {
-                        0 => Some(("guide.step1.action", Page::Hardware)),
-                        2 => Some(("guide.step3.action", Page::Efi)),
-                        3 | 4 => Some(("guide.step4.action", Page::Usb)),
-                        _ => None,
-                    };
-                    if let Some((key, page)) = action
-                        && ui.button(tr(key)).clicked()
-                    {
-                        self.page = page;
-                    }
-                    if step == 4 {
-                        ui.label(RichText::new(tr("guide.step5.warning")).color(WARNING));
-                    }
-                    if step == 5 {
-                        if self.build_result.as_ref().is_some_and(|b| b.plan.nvidia) {
-                            ui.label(RichText::new(tr("guide.nvidia")).color(WARNING));
-                        }
-                        for (i, key) in guide::CHECKS.iter().enumerate() {
-                            ui.checkbox(&mut self.install_checks[i], tr(key));
-                        }
-                    }
                 });
         }
         ui.add_space(16.);
@@ -119,12 +128,23 @@ impl App {
     }
 }
 pub(crate) fn diagnostic<'a>(ui: &mut egui::Ui, messages: impl Iterator<Item = &'a str>) {
-    egui::CollapsingHeader::new(tr("details.title")).show(ui, |ui| {
-        ui.label(RichText::new(tr("details.hint")).size(12.).color(MUTED));
-        for message in messages {
-            ui.label(RichText::new(message).size(12.).color(MUTED));
-        }
-    });
+    let colors = theme::palette(ui);
+    let messages: Vec<_> = messages.filter(|m| !m.is_empty()).collect();
+    if messages.is_empty() {
+        return;
+    }
+    egui::CollapsingHeader::new(tr("details.title"))
+        .id_salt(&messages)
+        .show(ui, |ui| {
+            ui.label(
+                RichText::new(tr("details.hint"))
+                    .size(12.)
+                    .color(colors.muted),
+            );
+            for message in &messages {
+                ui.label(RichText::new(*message).size(12.).color(colors.muted));
+            }
+        });
 }
 pub(crate) fn status_label(status: Status) -> &'static str {
     tr(match status {
@@ -133,15 +153,6 @@ pub(crate) fn status_label(status: Status) -> &'static str {
         Status::Patched => "status.patched",
         Status::Unsupported => "status.unsupported",
         Status::Unknown => "status.unknown",
-    })
-}
-pub(crate) fn status_reason(status: Status) -> &'static str {
-    tr(match status {
-        Status::Supported => "reason.supported",
-        Status::Driver => "reason.driver",
-        Status::Patched => "reason.patched",
-        Status::Unsupported => "reason.unsupported",
-        Status::Unknown => "reason.unknown",
     })
 }
 pub(crate) fn section_label(section: &str) -> &str {
