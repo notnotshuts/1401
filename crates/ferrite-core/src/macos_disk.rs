@@ -247,17 +247,14 @@ mod tests {
         }
     }
     impl Image {
-        fn attach(&mut self) -> Result<(String, Option<String>)> {
-            let raw = crate::workspace::run_bounded(
-                "/usr/bin/hdiutil",
-                &[
-                    "attach",
-                    "-plist",
-                    "-nobrowse",
-                    self.path.to_str().context("Image path")?,
-                ],
-                Duration::from_secs(60),
-            )?;
+        fn attach(&mut self, nomount: bool) -> Result<(String, Option<String>)> {
+            let mut args = vec!["attach", "-plist", "-nobrowse"];
+            if nomount {
+                args.push("-nomount");
+            }
+            args.push(self.path.to_str().context("Image path")?);
+            let raw =
+                crate::workspace::run_bounded("/usr/bin/hdiutil", &args, Duration::from_secs(60))?;
             let data = Value::from_reader(Cursor::new(raw))?;
             let rows = data
                 .as_dictionary()
@@ -301,18 +298,14 @@ mod tests {
                 "8g",
                 "-type",
                 "SPARSE",
-                "-fs",
-                "MS-DOS",
                 "-layout",
-                "MBRSPUD",
-                "-volname",
-                "FERRITE-CI",
+                "NONE",
                 path.to_str().context("Image path")?,
             ],
             Duration::from_secs(90),
         )?;
         let mut image = Image { path, device: None };
-        let (device, initial_mount) = image.attach()?;
+        let (device, _) = image.attach(true)?;
         let id = macos::disk_path_id(&device)?;
         let live = identity(id)?;
         assert!(!live.usb);
@@ -356,6 +349,26 @@ mod tests {
                 });
             owned && matches
         }));
+        crate::workspace::run_bounded(
+            "/usr/sbin/diskutil",
+            &["eraseDisk", "FAT32", "FERRITE-CI", "MBRFormat", &device],
+            Duration::from_secs(90),
+        )?;
+        let live = identity(id)?;
+        let metadata = info(id)?;
+        let d = metadata.as_dictionary().context("Formatted owned image")?;
+        let raw = crate::workspace::run_bounded(
+            "/usr/sbin/diskutil",
+            &["info", "-plist", &format!("{device}s1")],
+            Duration::from_secs(30),
+        )?;
+        let partition = Value::from_reader(Cursor::new(raw))?;
+        let initial_mount = partition
+            .as_dictionary()
+            .and_then(|p| p.get("MountPoint"))
+            .and_then(Value::as_string)
+            .context("Initial FAT32 mount")?
+            .to_string();
         let selected = Disk {
             path: device.clone(),
             model: "Owned CI image".into(),
@@ -382,7 +395,7 @@ mod tests {
         // A process with its working directory on the volume must block non-forced unmount.
         {
             use std::io::BufRead;
-            let mount = initial_mount.context("Initial test FAT volume")?;
+            let mount = initial_mount;
             let child = std::process::Command::new("/bin/sh")
                 .args(["-c", "pwd; exec sleep 120"])
                 .current_dir(&mount)
@@ -423,7 +436,7 @@ mod tests {
             "Eject must succeed on the owned image"
         );
         image.device = None;
-        let (_, mount) = image.attach()?;
+        let (_, mount) = image.attach(false)?;
         let mount = mount.context("Written FAT32 must mount after reattachment")?;
         assert_eq!(
             fs::read(Path::new(&mount).join("EFI/BOOT/BOOTx64.efi"))?,
